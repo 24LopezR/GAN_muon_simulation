@@ -212,7 +212,20 @@ def generate_fake_samples(generator, dataset, latent_dim, n_samples, seq=False, 
 	y = zeros((n_samples, 1))
 	return [X, input_data], y
 
-def generate_and_save(g_model, dataset, latent_dim, n_samples, output, scaler):
+def generate_and_save(g_model, dataset, latent_dim, n_samples, scaler, output):
+	"""
+	Generates fake samples and saves them in a .root file.
+	Arguments:
+	Input:
+		g_mode: generator model
+		dataset: set of real data with the structure from load_ral_samples()
+		latent_dim
+		n_samples: number of samples we want to generate
+		scaler: StandardScaler() like
+		output: name of output .root file
+	Output:
+		returns nothing
+	"""
 	f = r.TFile(output, "RECREATE")
 	tree = r.TTree("globalReco", "globalReco")
 	px1 = array('f', [0.])
@@ -358,4 +371,4 @@ if __name__ == "__main__":
 	# train model
 	train(g_model, d_model, gan_model, dataset, latent_dim, n_discrim_updates, epochs, nbatch)
 	#Generate a few
-	generate_and_save(g_model, dataset, latent_dim, 300000, output, scaler)
+	generate_and_save(g_model, dataset, latent_dim, 300000, scaler, output)
