@@ -37,7 +37,7 @@ from keras.initializers import RandomNormal
 from keras.constraints import Constraint
 
 # Wasserstein GAN implementation #########################################
-WGAN = False
+WGAN = True
 # implementation of wasserstein loss
 def wasserstein_loss(y_true, y_pred):
 	return backend.mean(y_true * y_pred)
@@ -59,6 +59,11 @@ class ClipConstraint(Constraint):
 
 # define the standalone discriminator model
 def define_discriminator(in_shape=4):
+	# weight initialization
+	init = RandomNormal(stddev=0.02)
+	# weight constraint
+	const = ClipConstraint(0.01)
+	
 	# first detector input
 	in_first_det_data = Input(shape=in_shape)
 	# second detector input
@@ -66,54 +71,57 @@ def define_discriminator(in_shape=4):
 	# concat label as a channel
 	merge = Concatenate()([in_second_det_data, in_first_det_data])
 	
-	fe = Dense(128)(merge)
-	fe = LeakyReLU(alpha=0.1)(fe)
+	fe = Dense(128, kernel_initializer=init, kernel_constraint=const)(merge)
+	fe = LeakyReLU(alpha=0.2)(fe)
 	
-	fe = Dense(64)(fe)
-	fe = LeakyReLU(alpha=0.1)(fe)
+	fe = Dense(64, kernel_initializer=init, kernel_constraint=const)(fe)
+	fe = LeakyReLU(alpha=0.2)(fe)
 
-	fe = Dense(64)(fe)
-	fe = LeakyReLU(alpha=0.1)(fe)
+	fe = Dense(64, kernel_initializer=init, kernel_constraint=const)(fe)
+	fe = LeakyReLU(alpha=0.2)(fe)
 	#fe = BatchNormalization()(fe)
 
-	fe = Dense(64)(fe)
-	fe = LeakyReLU(alpha=0.1)(fe)
+	fe = Dense(64, kernel_initializer=init, kernel_constraint=const)(fe)
+	fe = LeakyReLU(alpha=0.2)(fe)
 	#fe = BatchNormalization()(fe)
 	
-	fe = Flatten()(fe)
+	#fe = Flatten()(fe)
 	# output
-	out_layer = Dense(1, activation='sigmoid')(fe)
+	out_layer = Dense(1, activation='linear')(fe)
 	# define model
 	model = Model([in_second_det_data, in_first_det_data], out_layer)
 	# compile model
-	opt = Adam(learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07)
-	model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
+	opt = RMSprop(lr=0.00005)
+	model.compile(loss=wasserstein_loss, optimizer=opt, metrics=['accuracy'])
 	return model
  
 # define the standalone generator model
 def define_generator(latent_dim):
+	# weight initialization
+	init = RandomNormal(stddev=0.02)
+	
 	# data input
 	in_first_detector = Input(shape=4)
 	# noise input
 	in_lat = Input(shape=latent_dim)
 
 	n_nodes = 4 * 127
-	gen = Dense(n_nodes)(in_lat)
+	gen = Dense(n_nodes, kernel_initializer=init)(in_lat)
 
 	merge = Concatenate()([gen, in_first_detector])
-	gen = Dense(512)(merge)
+	gen = Dense(512, kernel_initializer=init)(merge)
 	gen = LeakyReLU(alpha=0.2)(gen)
 	#gen = BatchNormalization()(gen)
-	gen = Dense(256)(gen)
+	gen = Dense(256, kernel_initializer=init)(gen)
 	gen = LeakyReLU(alpha=0.2)(gen)
 	#gen = BatchNormalization()(gen)
-	gen = Dense(256)(gen)
+	gen = Dense(256, kernel_initializer=init)(gen)
 	gen = LeakyReLU(alpha=0.2)(gen)
-	gen = Dense(128)(gen)
+	gen = Dense(128, kernel_initializer=init)(gen)
 	gen = LeakyReLU(alpha=0.2)(gen)
-	gen = Dense(64)(gen)
+	gen = Dense(64, kernel_initializer=init)(gen)
 	gen = LeakyReLU(alpha=0.2)(gen)
-	gen = Dense(16)(gen)
+	gen = Dense(16, kernel_initializer=init)(gen)
 	gen = LeakyReLU(alpha=0.2)(gen)
 	# output
 	out_layer = Dense(4, activation='linear')(gen)
@@ -134,8 +142,8 @@ def define_gan(g_model, d_model):
 	# define gan model as taking noise and label and outputting a classification
 	model = Model([gen_noise, gen_data_input], gan_output)
 	# compile model
-	opt = Adam(learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07)
-	model.compile(loss='binary_crossentropy', optimizer=opt)
+	opt = RMSprop(lr=0.00005)
+	model.compile(loss=wasserstein_loss, optimizer=opt)
 	return model
  
 # load muon data
@@ -199,7 +207,7 @@ def generate_real_samples(dataset, n_samples, weights=None):
 	else:
 		w = None
 	# generate class labels
-	y = ones((n_samples, 1))
+	y = -ones((n_samples, 1))
 	return [X, input_data], w, y
  
 # generate points in latent space as input for the generator
@@ -254,7 +262,7 @@ def generate_fake_samples(generator, dataset, latent_dim, n_samples, weights=Non
 	# predict outputs
 	X = generator.predict([z_input, input_data])
 	# create class labels
-	y = zeros((n_samples, 1))
+	y = ones((n_samples, 1))
 	return [X, input_data], w, y
 
 def generate_and_save(g_model, dataset, latent_dim, n_samples, scaler, output):
@@ -349,7 +357,7 @@ def train(g_model, d_model, gan_model, dataset, latent_dim, n_discrim_updates, n
 			# prepare points in latent space as input for the generator
 			[z_input, labels_input], w_input = generate_latent_points(dataset, latent_dim, n_batch, weights=weights)
 			# create inverted labels for the fake samples
-			y_gan = ones((n_batch, 1))
+			y_gan = -ones((n_batch, 1))
 			# update the generator via the discriminator's error
 			g_loss = gan_model.train_on_batch([z_input, labels_input], y_gan, sample_weight=w_input)
 			if (j+1) % 20 == 0:

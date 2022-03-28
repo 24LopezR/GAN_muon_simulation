@@ -26,6 +26,7 @@ from keras.layers import LeakyReLU
 from keras.layers import Dropout
 from keras.layers import Embedding
 from keras.layers import Concatenate
+from keras.layers import Activation
 from matplotlib import pyplot
 from optparse import OptionParser
 import ROOT as r
@@ -67,27 +68,27 @@ def define_discriminator(in_shape=4):
 	merge = Concatenate()([in_second_det_data, in_first_det_data])
 	
 	fe = Dense(128)(merge)
-	fe = LeakyReLU(alpha=0.1)(fe)
+	fe = LeakyReLU(alpha=0.2)(fe)
 	
 	fe = Dense(64)(fe)
-	fe = LeakyReLU(alpha=0.1)(fe)
+	fe = LeakyReLU(alpha=0.2)(fe)
 
 	fe = Dense(64)(fe)
-	fe = LeakyReLU(alpha=0.1)(fe)
+	fe = LeakyReLU(alpha=0.2)(fe)
 	#fe = BatchNormalization()(fe)
 
 	fe = Dense(64)(fe)
-	fe = LeakyReLU(alpha=0.1)(fe)
+	fe = LeakyReLU(alpha=0.2)(fe)
 	#fe = BatchNormalization()(fe)
 	
 	fe = Flatten()(fe)
 	# output
-	out_layer = Dense(1, activation='sigmoid')(fe)
+	out_layer = Dense(1, activation='linear')(fe)
 	# define model
 	model = Model([in_second_det_data, in_first_det_data], out_layer)
 	# compile model
 	opt = Adam(learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07)
-	model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
+	model.compile(loss='mse', optimizer=opt, metrics=['accuracy'])
 	return model
  
 # define the standalone generator model
@@ -102,19 +103,19 @@ def define_generator(latent_dim):
 
 	merge = Concatenate()([gen, in_first_detector])
 	gen = Dense(512)(merge)
-	gen = LeakyReLU(alpha=0.2)(gen)
+	gen = Activation('relu')(gen)
 	#gen = BatchNormalization()(gen)
 	gen = Dense(256)(gen)
-	gen = LeakyReLU(alpha=0.2)(gen)
+	gen = Activation('relu')(gen)
 	#gen = BatchNormalization()(gen)
 	gen = Dense(256)(gen)
-	gen = LeakyReLU(alpha=0.2)(gen)
+	gen = Activation('relu')(gen)
 	gen = Dense(128)(gen)
-	gen = LeakyReLU(alpha=0.2)(gen)
+	gen = Activation('relu')(gen)
 	gen = Dense(64)(gen)
-	gen = LeakyReLU(alpha=0.2)(gen)
+	gen = Activation('relu')(gen)
 	gen = Dense(16)(gen)
-	gen = LeakyReLU(alpha=0.2)(gen)
+	gen = Activation('relu')(gen)
 	# output
 	out_layer = Dense(4, activation='linear')(gen)
 	# define model
@@ -135,7 +136,7 @@ def define_gan(g_model, d_model):
 	model = Model([gen_noise, gen_data_input], gan_output)
 	# compile model
 	opt = Adam(learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07)
-	model.compile(loss='binary_crossentropy', optimizer=opt)
+	model.compile(loss='mse', optimizer=opt)
 	return model
  
 # load muon data
@@ -375,7 +376,7 @@ if __name__ == "__main__":
 	parser.add_option("-i", "--input",     dest="input",       type="string",   default='input.root',     help="Input root file")
 	parser.add_option("-o", "--output",    dest="output",      type="string",   default='output.root',    help="Output root file")
 	parser.add_option("-e", "--epochs",    dest="epochs",      type="int",      default=100,              help="N epochs")
-	parser.add_option("-l", "--latent",    dest="latent",      type="int",      default=100,              help="Dimension of latent space")
+	parser.add_option("-l", "--latent",    dest="latent",      type="int",      default=64,               help="Dimension of latent space")
 	parser.add_option("-b", "--batch",     dest="batch",       type="int",      default=256,              help="N batch")
 	parser.add_option("-k", "--khyp",      dest="k_hyp",       type="int",      default=5,                help="k hyperparameter")
 	(options, args) = parser.parse_args()
