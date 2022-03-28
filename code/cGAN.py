@@ -146,8 +146,8 @@ def load_real_samples(inputfile, scaler):
 		inputfile: name of the .root file with the data
 		scaler: (sklearn.preprocessing.StandardScaler()) 
 	Output: 
-		data_transf: numpy array of dimension (n_events, 8) with scaled data. 4 first variables correspond to first detector data
-			and 4 last variables to second detector data
+		dataset = [second_det, first_det]: numpy array of shape [(N, 4), (N, 4)]
+		w: computed weights, numpy array of size (N, 1)
 	"""
 	f = r.TFile(inputfile)
 	thedata = [] 
@@ -166,51 +166,95 @@ def load_real_samples(inputfile, scaler):
 	data_transf = scaler.transform(data)
 	first_det = data_transf[:,:4]
 	second_det = data_transf[:,4:]
-	return [second_det, first_det]
- 
+	
+	# compute weights
+	w = None
+	return [second_det, first_det], w
+
 # # select real samples
-def generate_real_samples(dataset, n_samples, seq=False, j=0, ind=None):
+def generate_real_samples(dataset, n_samples, weights=None):
+	"""
+	Generates a set of samples from the real data to train the discriminator.
+	Arguments:
+	Input:
+		dataset: numpy array of shape [(N, 4), (N, 4)] (output from load_real_samples())
+		n_samples: number of samples to generate
+		weights: numpy array of size (N, 1) (output from load_real_samples())
+	Output:
+		X: real samples, numpy array of shape (N, 4)
+		input_data: input variables corresponding to samples from X, numpy array of shape (N, 4)
+		w: weights corresponding to samples from X, numpy array of shape (N, 1)
+		y: class labels, numpy array of shape (N, 1)
+	"""
 	# split into first and second detector information
 	# the info of first detector will be used as input to the deiscriminator and generator
 	second_detector, first_detector = dataset
 	# choose random instances
-	if not seq:
-		ix = randint(0, second_detector.shape[0], n_samples)
-	else:
-		ix = np.arange(n_samples*j, n_samples*(j+1))
+	ix = randint(0, second_detector.shape[0], n_samples)
 	# select samples
 	X, input_data = second_detector[ix], first_detector[ix]
+	if weights is not None:
+		w = weights[ix]
+	else:
+		w = None
 	# generate class labels
 	y = ones((n_samples, 1))
-	return [X, input_data], y
+	return [X, input_data], w, y
  
 # generate points in latent space as input for the generator
-def generate_latent_points(dataset, latent_dim, n_samples, seq=False, j=0):
+def generate_latent_points(dataset, latent_dim, n_samples, weights=None):
+	"""
+	Generates a set of samples from the real data to train the discriminator.
+	Arguments:
+	Input:
+		dataset: numpy array of shape [(N, 4), (N, 4)] (output from load_real_samples())
+		latent_dim: dimension of latent space
+		n_samples: number of samples to generate
+		weights: numpy array of size (N, 1) (output from load_real_samples())
+	Output:
+		z_input: latent space poin, numpy array of shape (N, 4)
+		input_data: input variables corresponding to samples from X, numpy array of shape (N, 4)
+		w: weights corresponding to samples from X, numpy array of shape (N, 1)
+		y: class labels, numpy array of shape (N, 1)
+	"""
 	second_detector, first_detector = dataset
 	# generate points in the latent space
 	x_input = randn(latent_dim * n_samples)
 	# reshape into a batch of inputs for the network
 	z_input = x_input.reshape(n_samples, latent_dim)
 	# choose random instances
-	if not seq:
-		ix = randint(0, first_detector.shape[0], n_samples)
-	else:
-		ix = np.arange(n_samples*j, n_samples*(j+1))
+	ix = randint(0, first_detector.shape[0], n_samples)
 	input_data = first_detector[ix]
-	return [z_input, input_data]
+	if weights is not None:
+		w = weights[ix]
+	else:
+		w = None
+	return [z_input, input_data], w
  
 # use the generator to generate n fake examples, with class labels
-def generate_fake_samples(generator, dataset, latent_dim, n_samples, seq=False, j=0):
+def generate_fake_samples(generator, dataset, latent_dim, n_samples, weights=None):
+	"""
+	Generates a set of samples from a keras model to train the discriminator.
+	Arguments:
+	Input:
+		generator: generator keras model
+		dataset: numpy array of shape [(N, 4), (N, 4)] (output from load_real_samples())
+		latent_dim: dimension of latent space
+		n_samples: number of samples to generate
+		weights: numpy array of size (N, 1) (output from load_real_samples())
+	Output:
+		X: fake samples, numpy array of shape (N, 4)
+		input_data: input variables corresponding to samples from X, numpy array of shape (N, 4)
+		w: weights corresponding to samples from X, numpy array of shape (N, 1)
+		y: class labels, numpy array of shape (N, 1)
+	"""
 	# generate points in latent space
-	if not seq:
-		z_input, input_data = generate_latent_points(dataset, latent_dim, n_samples)
-	else:
-		z_input, input_data = generate_latent_points(dataset, latent_dim, n_samples, seq=True, j=j)
+	[z_input, input_data], w = generate_latent_points(dataset, latent_dim, n_samples, weights)
 	# predict outputs
 	X = generator.predict([z_input, input_data])
 	# create class labels
 	y = zeros((n_samples, 1))
-	return [X, input_data], y
+	return [X, input_data], w, y
 
 def generate_and_save(g_model, dataset, latent_dim, n_samples, scaler, output):
 	"""
@@ -244,7 +288,7 @@ def generate_and_save(g_model, dataset, latent_dim, n_samples, scaler, output):
 	tree.Branch("py2", py2, 'py2/F')
 	tree.Branch("pvx2", pvx2, 'pvx2/F')
 	tree.Branch("pvy2", pvy2, 'pvy2/F')
-	[Xtrans, input_data], y = generate_fake_samples(g_model, dataset, latent_dim, n_samples)
+	[Xtrans, input_data], _, _ = generate_fake_samples(g_model, dataset, latent_dim, n_samples)
 	data = np.hstack((input_data, Xtrans))
 	G = scaler.inverse_transform(data)
 	for i in range(G.shape[0]):
@@ -261,29 +305,21 @@ def generate_and_save(g_model, dataset, latent_dim, n_samples, scaler, output):
 	f.Close()
 	
 def plot_history(d1_hist, d2_hist, g_hist):
-        # plot history
-        pyplot.plot(d1_hist, label='crit_real')
-        pyplot.plot(d2_hist, label='crit_fake')
-        pyplot.plot(g_hist, label='gen')
-        pyplot.legend()
-        pyplot.savefig('plot_line_plot_loss.png', dpi = 400)
-        pyplot.close()
-
-# evaluate the discriminator, plot generated images, save generator model
-def summarize_performance(epoch, g_model, d_model, dataset, latent_dim, n_samples=100):
-	# prepare real samples
-	X_real, y_real = generate_real_samples(dataset, n_samples)
-	# evaluate discriminator on real examples
-	d_real, acc_real = d_model.evaluate(X_real, y_real, verbose=0)
-	# prepare fake examples
-	x_fake, y_fake = generate_fake_samples(g_model, dataset, latent_dim, n_samples)
-	# evaluate discriminator on fake examples
-	d_fake, acc_fake = d_model.evaluate(x_fake, y_fake, verbose=0)
-	# summarize discriminator performance
-	#print('>Accuracy real: %.0f%%, fake: %.0f%%' % (acc_real*100, acc_fake*100))
-	# save plot
-	#save_plot(x_fake, epoch)
-	return d_real, d_fake, acc_real, acc_fake
+	"""
+	Plots the discriminator loss for real and fake samples and the generator loss, and saves the plot to a .png file.
+	Arguments:
+	Input:
+		d1_hist: discriminator loss on real samples
+		d2_hist: discriminator loss on fake samples
+		g_hist: generator loss
+	"""
+	# plot history
+	pyplot.plot(d1_hist, label='crit_real')
+	pyplot.plot(d2_hist, label='crit_fake')
+	pyplot.plot(g_hist, label='gen')
+	pyplot.legend()
+	pyplot.savefig('plot_line_plot_loss.png', dpi = 400)
+	pyplot.close()
 
 def save_model(epoch):
 	# save the generator model tile file
@@ -291,7 +327,7 @@ def save_model(epoch):
 	g_model.save(filename)
 
 # train the generator and discriminator
-def train(g_model, d_model, gan_model, dataset, latent_dim, n_discrim_updates, n_epochs=10, n_batch=128):
+def train(g_model, d_model, gan_model, dataset, latent_dim, n_discrim_updates, n_epochs=10, n_batch=128, weights=None):
 	bat_per_epo = int(dataset[0].shape[0] / n_batch)
 	half_batch = int(n_batch / 2)
 	# lists for keeping track of loss (lari)
@@ -302,19 +338,19 @@ def train(g_model, d_model, gan_model, dataset, latent_dim, n_discrim_updates, n
 		for j in range(bat_per_epo):
 			for k in range(n_discrim_updates):
 				# get randomly selected 'real' samples
-				[X_real, labels_real], y_real = generate_real_samples(dataset, half_batch, seq=False, j=j)
+				[X_real, labels_real], w_real, y_real = generate_real_samples(dataset, half_batch, weights=weights)
 				# update discriminator model weights
-				d_loss1, acc_real = d_model.train_on_batch([X_real, labels_real], y_real)
+				d_loss1, acc_real = d_model.train_on_batch([X_real, labels_real], y_real, sample_weight=w_real)
 				# generate 'fake' examples
-				[X_fake, labels], y_fake = generate_fake_samples(g_model, dataset, latent_dim, half_batch, seq=False, j=j)
+				[X_fake, labels], w_fake, y_fake = generate_fake_samples(g_model, dataset, latent_dim, half_batch, weights=weights)
 				# update discriminator model weights
-				d_loss2, acc_fake = d_model.train_on_batch([X_fake, labels], y_fake)
+				d_loss2, acc_fake = d_model.train_on_batch([X_fake, labels], y_fake, sample_weight=w_fake)
 			# prepare points in latent space as input for the generator
-			[z_input, labels_input] = generate_latent_points(dataset, latent_dim, n_batch, seq=False, j=j)
+			[z_input, labels_input], w_input = generate_latent_points(dataset, latent_dim, n_batch, weights=weights)
 			# create inverted labels for the fake samples
 			y_gan = ones((n_batch, 1))
 			# update the generator via the discriminator's error
-			g_loss = gan_model.train_on_batch([z_input, labels_input], y_gan)
+			g_loss = gan_model.train_on_batch([z_input, labels_input], y_gan, sample_weight=w_input)
 			if (j+1) % 20 == 0:
 				print('>%d, %d/%d, d1=%.3f, d2=%.3f, g=%.3f; Accuracy real: %.0f%%, fake: %.0f%%' % (i+1, j+1, bat_per_epo, d_loss1, d_loss2, g_loss, acc_real*100, acc_fake*100))
 				d_real_hist.append(d_loss1)
@@ -367,8 +403,8 @@ if __name__ == "__main__":
 
 	# load image data
 	scaler = StandardScaler()
-	dataset = load_real_samples(inputfile, scaler)
+	dataset, weights = load_real_samples(inputfile, scaler)
 	# train model
-	train(g_model, d_model, gan_model, dataset, latent_dim, n_discrim_updates, epochs, nbatch)
+	train(g_model, d_model, gan_model, dataset, latent_dim, n_discrim_updates, epochs, nbatch, weights)
 	#Generate a few
 	generate_and_save(g_model, dataset, latent_dim, 300000, scaler, output)

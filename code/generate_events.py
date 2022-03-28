@@ -38,7 +38,7 @@ if __name__ == "__main__":
 	parser.add_option("-m", "--model",     dest="model",       type="string",   default='moddel.h5',      help="Model .h5 file")
 	parser.add_option("-o", "--output",    dest="output",      type="string",   default='output.root',    help="Output root file")
 	parser.add_option("-n", "--nsamples",  dest="samples",     type="int",      default=300000,           help="N samples")
-	parser.add_option("-l", "--latent",    dest="latent",      type="int",      default=100,              help="Dimension of latent space")
+	parser.add_option("-l", "--latent",    dest="latent",      type="int",      default=64,               help="Dimension of latent space")
 	(options, args) = parser.parse_args()
 	
 	# load model
@@ -54,5 +54,5 @@ if __name__ == "__main__":
 	samples = options.samples
 	
 	scaler = StandardScaler()
-	dataset = load_real_samples(inputfile, scaler)
-	generate_and_save(model, dataset, latent_dim, samples, output, scaler)
+	dataset, _ = load_real_samples(inputfile, scaler)
+	generate_and_save(model, dataset, latent_dim, samples, scaler, output)

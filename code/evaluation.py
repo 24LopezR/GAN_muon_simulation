@@ -52,9 +52,9 @@ def generate_evaluation_samples(generator, inputfile, latent_dim, scaler):
 	second_det = data[:,4:]
 	real = second_det
 	
-	# weight and scale real events
-	w = (data[:,4]**2+data[:,5]**2)
-	scaler.fit(data, sample_weight = 1/w)
+	# scale real events
+	w = 1/(data[:,4]**2 + data[:,5]**2)# + data[:,6]**2 + data[:,7]**2)
+	scaler.fit(data, sample_weight=w)
 	real_data_transf = scaler.transform(data)
 	# generate points in the latent space
 	n_samples = first_det.shape[0]
@@ -99,7 +99,7 @@ def print_results(modelname, pull, cov, skew, p_values):
 	p=5
 	
 	print("."*90)
-	print("    Summary of results: {}".format('model.h5'))
+	print("    Summary of results: {}".format(modelname))
 	print("."*90)
 	print("{:<20} {:<15} {:<15} {:<15} {:<15}".format('Parameter','Dx','Dy','Dv_x','Dv_y'))
 	print("."*90)
@@ -157,19 +157,22 @@ if __name__ == "__main__":
 
 	parser = OptionParser(usage="%prog --help")
 	parser.add_option("-i", "--input",     dest="input",       type="string",   default='input.root',         help="Input root file")
+	parser.add_option("-o", "--output",    dest='output',      type="string",   default='evaluation.pdf',     help='Output filename')
 	parser.add_option("-m", "--model",     dest="model",       type="string",   default=None,                 help="Model .h5 file")
 	parser.add_option("-c", "--csv",       dest="loss",        type="string",   default=None,                 help="Loss data file")
 	parser.add_option("-l", "--latent",    dest="latent",      type="int",      default=64,                   help="Dimension of latent space")
 	(options, args) = parser.parse_args()
 
-	# size of the latent space
-	latent_dim = options.latent
-	#Name of input file
+	# Name of input file
 	input_file = options.input
+	# Name of output file
+	output_file = options.output
 	# Model file
 	model_file = options.model
 	# Loss data
 	loss_file = options.loss
+	# size of the latent space
+	latent_dim = options.latent
 
 	# Evaluate the model
 	if model_file:
@@ -186,11 +189,11 @@ if __name__ == "__main__":
 
 		print_results(model_file, pull, cov, skew, p_values)
 
-		out = PdfPages('evaluation.pdf')
-		out.savefig(plot_difference(real[:,0], real[:,1], fake[:,0], fake[:,1], (-8,8), ['$\Delta x$','$\Delta y$'], 'log'));
-		out.savefig(plot_difference(real[:,2], real[:,3], fake[:,2], fake[:,3], (-1,1), ['$\Delta v_x$','$\Delta v_y$'], 'log'));
-		out.savefig(plot_correlation_2Dhist(real[:,0], real[:,2], fake[:,0], fake[:,2], [[-8,8],[-1,1]], ['$\Delta x$','$\Delta v_x$']));
-		out.savefig(plot_correlation_2Dhist(real[:,1], real[:,3], fake[:,1], fake[:,3], [[-8,8],[-1,1]], ['$\Delta y$','$\Delta v_y$']));
+		out = PdfPages(output_file)
+		out.savefig(plot_difference(real[:,0], real[:,1], fake[:,0], fake[:,1], (-50,50), ['$\Delta x$','$\Delta y$'], 'log'));
+		out.savefig(plot_difference(real[:,2], real[:,3], fake[:,2], fake[:,3], (-1.5,1.5), ['$\Delta v_x$','$\Delta v_y$'], 'log'));
+		out.savefig(plot_correlation_2Dhist(real[:,0], real[:,2], fake[:,0], fake[:,2], [[-15,15],[-1,1]], ['$\Delta x$','$\Delta v_x$']));
+		out.savefig(plot_correlation_2Dhist(real[:,1], real[:,3], fake[:,1], fake[:,3], [[-15,15],[-1,1]], ['$\Delta y$','$\Delta v_y$']));
 		out.close()
 
 	# plot loss
