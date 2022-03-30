@@ -53,7 +53,7 @@ def generate_evaluation_samples(generator, inputfile, latent_dim, scaler):
 	real = second_det
 	
 	# scale real events
-	w = 1/(data[:,4]**2 + data[:,5]**2)# + data[:,6]**2 + data[:,7]**2)
+	w = 1/np.sqrt(data[:,4]**2 + data[:,5]**2)# + data[:,6]**2 + data[:,7]**2)
 	scaler.fit(data, sample_weight=w)
 	real_data_transf = scaler.transform(data)
 	# generate points in the latent space
@@ -130,12 +130,12 @@ def print_results(modelname, pull, cov, skew, p_values):
 	print("."*90)
 	print("Real samples:")
 	print("")
-	print('\n'.join([''.join(['{:<10.5f}'.format(item) for item in row]) 
+	print('\n'.join([''.join(['{:<12.7f}'.format(item) for item in row]) 
 	      for row in cov_real]))
 	print("."*90)
 	print("Fake samples:")
 	print("")
-	print('\n'.join([''.join(['{:<10.5f}'.format(item) for item in row]) 
+	print('\n'.join([''.join(['{:<12.7f}'.format(item) for item in row]) 
 	      for row in cov_fake]))
 
 def plot_history(d1_hist, d2_hist, g_hist, y1, y2):

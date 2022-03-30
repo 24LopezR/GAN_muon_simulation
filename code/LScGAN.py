@@ -27,6 +27,7 @@ from keras.layers import Dropout
 from keras.layers import Embedding
 from keras.layers import Concatenate
 from keras.layers import Activation
+from keras.callbacks import LearningRateScheduler
 from matplotlib import pyplot
 from optparse import OptionParser
 import ROOT as r
@@ -58,6 +59,14 @@ class ClipConstraint(Constraint):
 		return {'clip_value': self.clip_value}
 ##########################################################################
 
+def step_decay(epoch):
+   initial_lrate = 0.1
+   drop = 0.1
+   epochs_drop = 25
+   lrate = initial_lrate * math.pow(drop,  
+           math.floor((1+epoch)/epochs_drop))
+   return lrate
+
 # define the standalone discriminator model
 def define_discriminator(in_shape=4):
 	# first detector input
@@ -87,7 +96,7 @@ def define_discriminator(in_shape=4):
 	# define model
 	model = Model([in_second_det_data, in_first_det_data], out_layer)
 	# compile model
-	opt = Adam(learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07)
+	opt = Adam(learning_rate=LearningRateScheduler(step_decay), beta_1=0.9, beta_2=0.999, epsilon=1e-07)
 	model.compile(loss='mse', optimizer=opt, metrics=['accuracy'])
 	return model
  
@@ -135,7 +144,7 @@ def define_gan(g_model, d_model):
 	# define gan model as taking noise and label and outputting a classification
 	model = Model([gen_noise, gen_data_input], gan_output)
 	# compile model
-	opt = Adam(learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07)
+	opt = Adam(learning_rate=LearningRateScheduler(step_decay), beta_1=0.9, beta_2=0.999, epsilon=1e-07)
 	model.compile(loss='mse', optimizer=opt)
 	return model
  
@@ -163,8 +172,8 @@ def load_real_samples(inputfile, scaler):
             thedata.append([ev.px1, ev.py1, ev.pvx1, ev.pvy1, ev.px2-ev.px1 + 39*2 * ev.pvx1, ev.py2-ev.py1 + 39*2 * ev.pvy1, ev.pvx2-ev.pvx1, ev.pvy2-ev.pvy1])
 	data = np.asarray(thedata)
 	# weight events
-	w = (data[:,4]**2+data[:,5]**2)
-	scaler.fit(data, sample_weight = 1/w)
+	w = 1/np.sqrt(data[:,4]**2+data[:,5]**2)
+	scaler.fit(data, sample_weight = w)
 	data_transf = scaler.transform(data)
 	first_det = data_transf[:,:4]
 	second_det = data_transf[:,4:]

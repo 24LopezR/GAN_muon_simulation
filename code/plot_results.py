@@ -210,8 +210,8 @@ if __name__ == '__main__':
 	out.savefig(plot_directions('log'));
 	#out.savefig(plot_detector('First detector', True));
 	#out.savefig(plot_detector('Second detector', False));
-	out.savefig(plot_difference(Dx, Dy, Dxg, Dyg, (-5,5), ['$\Delta x','$\Delta y'], 'log'));
-	out.savefig(plot_difference(vx2-vx1, vy2-vy1, vx2g-vx1g, vy2g-vy1g, (-1,1), ['$\Delta v_x','$\Delta v_y'], 'log'));
+	out.savefig(plot_difference(Dx, Dy, Dxg, Dyg, (-50,50), ['$\Delta x$','$\Delta y$'], 'log'));
+	out.savefig(plot_difference(vx2-vx1, vy2-vy1, vx2g-vx1g, vy2g-vy1g, (-1.5,1.5), ['$\Delta v_x$','$\Delta v_y$'], 'log'));
 	out.savefig(plot_correlation_2Dhist(x2, vx2, x2g, vx2g, [[-50,50],[-1.4,1.4]], ['$x_2$','$v_{x_2}$']));
 	out.savefig(plot_correlation_2Dhist(y2, vy2, y2g, vy2g, [[-50,50],[-1.4,1.4]], ['$y_2$','$v_{y_2}$']));
 	out.savefig(plot_correlation_2Dhist(Dx, vx2-vx1, Dxg, vx2g-vx1g, [[-15,15],[-0.5,0.5]], ['$\Delta x$','$\Delta v_x$']));

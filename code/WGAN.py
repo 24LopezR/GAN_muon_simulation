@@ -26,6 +26,7 @@ from keras.layers import LeakyReLU
 from keras.layers import Dropout
 from keras.layers import Embedding
 from keras.layers import Concatenate
+from keras.layers import Activation
 from matplotlib import pyplot
 from optparse import OptionParser
 import ROOT as r
@@ -91,7 +92,7 @@ def define_discriminator(in_shape=4):
 	# define model
 	model = Model([in_second_det_data, in_first_det_data], out_layer)
 	# compile model
-	opt = RMSprop(lr=0.00005)
+	opt = RMSprop(lr=0.001)
 	model.compile(loss=wasserstein_loss, optimizer=opt, metrics=['accuracy'])
 	return model
  
@@ -109,20 +110,20 @@ def define_generator(latent_dim):
 	gen = Dense(n_nodes, kernel_initializer=init)(in_lat)
 
 	merge = Concatenate()([gen, in_first_detector])
-	gen = Dense(512, kernel_initializer=init)(merge)
-	gen = LeakyReLU(alpha=0.2)(gen)
+	gen = Dense(512)(merge)
+	gen = Activation('relu')(gen)
 	#gen = BatchNormalization()(gen)
-	gen = Dense(256, kernel_initializer=init)(gen)
-	gen = LeakyReLU(alpha=0.2)(gen)
+	gen = Dense(256)(gen)
+	gen = Activation('relu')(gen)
 	#gen = BatchNormalization()(gen)
-	gen = Dense(256, kernel_initializer=init)(gen)
-	gen = LeakyReLU(alpha=0.2)(gen)
-	gen = Dense(128, kernel_initializer=init)(gen)
-	gen = LeakyReLU(alpha=0.2)(gen)
-	gen = Dense(64, kernel_initializer=init)(gen)
-	gen = LeakyReLU(alpha=0.2)(gen)
-	gen = Dense(16, kernel_initializer=init)(gen)
-	gen = LeakyReLU(alpha=0.2)(gen)
+	gen = Dense(256)(gen)
+	gen = Activation('relu')(gen)
+	gen = Dense(128)(gen)
+	gen = Activation('relu')(gen)
+	gen = Dense(64)(gen)
+	gen = Activation('relu')(gen)
+	gen = Dense(16)(gen)
+	gen = Activation('relu')(gen)
 	# output
 	out_layer = Dense(4, activation='linear')(gen)
 	# define model
@@ -142,7 +143,7 @@ def define_gan(g_model, d_model):
 	# define gan model as taking noise and label and outputting a classification
 	model = Model([gen_noise, gen_data_input], gan_output)
 	# compile model
-	opt = RMSprop(lr=0.00005)
+	opt = RMSprop(lr=0.001)
 	model.compile(loss=wasserstein_loss, optimizer=opt)
 	return model
  
