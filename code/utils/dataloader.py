@@ -26,7 +26,7 @@ def load(inputfile, measurements=False):
 		        continue
 		    if abs(ev.mx2) > 80 or abs(ev.my2) > 80 or abs(ev.mvx2) > 1.5 or abs(ev.mvy2) > 1.5:
 		        continue
-		    thedata.append([ev.mx1, ev.my1, ev.mvx1, ev.mvy1, ev.mx2-ev.mx1 + 39*2 * ev.mvx1, ev.my2-ev.my1 + 39*2 * ev.mvy1, ev.mvx2-ev.mvx1, ev.mvy2-ev.mvy1])
+		    thedata.append([ev.px1, ev.py1, ev.pvx1, ev.pvy1, ev.mx2-ev.px1 + 39*2 * ev.pvx1, ev.my2-ev.py1 + 39*2 * ev.pvy1, ev.mvx2-ev.pvx1, ev.mvy2-ev.pvy1])
 	else:
 		for ev in f.globalReco:
 		    if ev.type1 != 3 or ev.type2 != 3:

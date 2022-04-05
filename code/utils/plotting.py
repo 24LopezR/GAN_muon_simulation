@@ -46,41 +46,40 @@ def cut_positions(data, gen):
 ########################################################################################################################################
 ######################## Plotting functions  ###########################################################################################
 ########################################################################################################################################
-def plot_positions(var1, var2, var1g, var2g):
+def plot_positions(var1, var2, var1g, var2g, xrange, scale):
     plt.rcParams["figure.figsize"] = (14,7)
     plt.rcParams["figure.titlesize"], plt.rcParams["axes.titlesize"] = (20,20)
     plt.rcParams["axes.labelsize"] = 18
     fig, (ax1, ax2) = plt.subplots(1, 2, sharex=True, sharey=True)
 
-    xrange = (-50,50)
-    b = 200
-    ax1.hist(var1, bins=b, density = True, histtype = 'step', color = 'black', range = xrange, label = 'data x2');
+    b = 500
+    ax1.hist(var1, bins=b, density = False, histtype = 'step', color = 'black', range = xrange, label = 'data x2');
     if var1g is not None:
-    	ax1.hist(var1g, bins=b, density = True, histtype = 'step', color = 'red', range = xrange, label = 'generated x2');
-    ax2.hist(var2, bins=b, density = True, histtype = 'step', color = 'black', range = xrange, label = 'data y2');
+    	ax1.hist(var1g, bins=b, density = False, histtype = 'step', color = 'red', range = xrange, label = 'generated x2');
+    ax2.hist(var2, bins=b, density = False, histtype = 'step', color = 'black', range = xrange, label = 'data y2');
     if var2g is not None:
-    	ax2.hist(var2g, bins=b, density = True, histtype = 'step', color = 'red', range = xrange, label = 'generated y2');
+    	ax2.hist(var2g, bins=b, density = False, histtype = 'step', color = 'red', range = xrange, label = 'generated y2');
     ax1.set_xlabel('$x_2$')
     ax2.set_xlabel('$y_2$')
+    ax1.set_yscale(scale)
     ax1.legend()
     ax2.legend()
     fig.suptitle('Positions');
     return fig
     
-def plot_directions(var1, var2, var1g, var2g, scale):
+def plot_directions(var1, var2, var1g, var2g, xrange, scale):
     plt.rcParams["figure.figsize"] = (14,7)
     plt.rcParams["figure.titlesize"], plt.rcParams["axes.titlesize"] = (20,20)
     plt.rcParams["axes.labelsize"] = 18
     fig, (ax1, ax2) = plt.subplots(1, 2, sharex=True, sharey=True)
 
-    xrange = (-1.5, 1.5)
-    b = 200
-    ax1.hist(var1, bins=b, density = True, histtype = 'step', color = 'black', range = xrange, label = 'data vx2');
+    b = 1000
+    ax1.hist(var1, bins=b, density = False, histtype = 'bar', color = 'black', range = xrange, label = 'data vx2');
     if var1g is not None:
-    	ax1.hist(var1g, bins=b, density = True, histtype = 'step', color = 'red', range = xrange, label = 'generated vx2');
-    ax2.hist(var2, bins=b, density = True, histtype = 'step', color = 'black', range = xrange, label = 'data vy2');
+    	ax1.hist(var1g, bins=b, density = False, histtype = 'step', color = 'red', range = xrange, label = 'generated vx2');
+    ax2.hist(var2, bins=b, density = False, histtype = 'bar', color = 'black', range = xrange, label = 'data vy2');
     if var2g is not None:
-    	ax2.hist(var2g, bins=b, density = True, histtype = 'step', color = 'red', range = xrange, label = 'generated vy2');
+    	ax2.hist(var2g, bins=b, density = False, histtype = 'step', color = 'red', range = xrange, label = 'generated vy2');
     ax1.set_xlabel('$v_{x_2}$')
     ax2.set_xlabel('$v_{y_2}$')
     ax1.set_yscale(scale)
@@ -89,18 +88,18 @@ def plot_directions(var1, var2, var1g, var2g, scale):
     fig.suptitle('Velocities');
     return fig
 
-def plot_difference(var1, var2, var1g, var2g, x_range, labels, scale):
+def plot_difference(var1, var2, var1g, var2g, x_range, labels, scale, bins=200):
     plt.rcParams["figure.figsize"] = (14,7)
     plt.rcParams["figure.titlesize"], plt.rcParams["axes.titlesize"] = (20,20)
     plt.rcParams["axes.labelsize"] = 18
     xrange = (-5,5)
 
     fig, (ax1, ax2) = plt.subplots(1, 2, sharex=True, sharey=True)
-    b = 200
-    ax1.hist(var1,  bins=b, density = False, range = x_range, histtype = 'step', color = 'black', label='data '+labels[0]);
+    b = bins
+    ax1.hist(var1,  bins=b, density = False, range = x_range, histtype = 'bar', color = 'black', label='data '+labels[0]);
     if var1g is not None:
     	ax1.hist(var1g, bins=b, density = False, range = x_range, histtype = 'step', color = 'red',   label='generated '+labels[0]);
-    ax2.hist(var2,  bins=b, density = False, range = x_range, histtype = 'step', color = 'black', label='data '+labels[1]);
+    ax2.hist(var2,  bins=b, density = False, range = x_range, histtype = 'bar', color = 'black', label='data '+labels[1]);
     if var2g is not None:
     	ax2.hist(var2g, bins=b, density = False, range = x_range, histtype = 'step', color = 'red',   label='generated '+labels[1]);
     ax1.set_xlabel(labels[0])
@@ -154,8 +153,8 @@ def print_plots(data, fake, output):
 		y2_fake = fake[:,1] + y1 - l*vy1
 		vx2_fake = fake[:,2] + vx1
 		vy2_fake = fake[:,3] + vy1
-		out.savefig(plot_positions(x2_real, y2_real, x2_fake, y2_fake))
-		out.savefig(plot_directions(vx2_real, vy2_real, vx2_fake, vy2_fake, 'log'))
+		out.savefig(plot_positions(x2_real, y2_real, x2_fake, y2_fake, (-60,60), 'linear'))
+		out.savefig(plot_directions(vx2_real, vy2_real, vx2_fake, vy2_fake, (-10,10), 'log'))
 		out.close()
 	else:
 		out = PdfPages('evaluation_'+output+'.pdf')
@@ -174,6 +173,6 @@ def print_plots(data, fake, output):
 		y2_real = data[:,5] + y1 - l*vy1
 		vx2_real = data[:,6] + vx1
 		vy2_real = data[:,7] + vy1
-		out.savefig(plot_positions(x2_real, y2_real, None, None))
-		out.savefig(plot_directions(vx2_real, vy2_real, None, None, 'log'))
+		out.savefig(plot_positions(x2_real, y2_real, None, None, (-60,60), 'linear'))
+		out.savefig(plot_directions(vx2_real, vy2_real, None, None, (-10,10), 'log'))
 		out.close()

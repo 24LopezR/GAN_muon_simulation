@@ -1,7 +1,6 @@
 ##################################################################################################
 #### Exectubale script to train and evaluate a GAN                                            ####
 ##################################################################################################
-import numpy as np
 import tensorflow as tf
 from keras import backend
 from keras.models import load_model
@@ -12,7 +11,7 @@ import os
 
 from utils.dataloader import load, scale
 from utils.evaluating import evaluate
-from utils.generating import generate_and_save, generate_evaluation_samples
+from utils.generating import generate_evaluation_samples
 from utils.training import train
 from utils.plotting import print_plots
 
@@ -79,7 +78,7 @@ if __name__ == "__main__":
 
 	# load and scale data
 	scaler = StandardScaler()
-	data = load(inputfile, measurements=False)
+	data = load(inputfile, measurements=True)
 	dataset, _, scaler = scale(data, scaler)
 	# _________________________________________________________________________________________
 
