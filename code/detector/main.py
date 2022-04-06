@@ -1,5 +1,6 @@
 ##################################################################################################
 #### Exectubale script to train and evaluate a GAN                                            ####
+#### that will simulate the Detector part                                                     ####
 ##################################################################################################
 import tensorflow as tf
 from keras import backend
@@ -78,8 +79,8 @@ if __name__ == "__main__":
 
 	# load and scale data
 	scaler = StandardScaler()
-	data = load(inputfile, measurements=True)
-	dataset, _, scaler = scale(data, scaler)
+	data = load(inputfile, mode='Detector', detector=1)
+	dataset, _, scaler = scale(data, scaler, mode='Detector')
 	# _________________________________________________________________________________________
 
 	# Create and train model
