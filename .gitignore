@@ -1,4 +1,4 @@
 code/script_for_tests.py
-code/utils/__pycache__
-code/models/__pycache__
+code/*/utils/__pycache__
+code/*/models/__pycache__
 code/__pycache__
