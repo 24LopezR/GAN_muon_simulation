@@ -6,26 +6,27 @@
 ### Use: python cond_gan.py -i [input.root] -e [epochs] -l [latent dim] -k 5             ###
 ############################################################################################
 ############################################################################################
-import numpy as np
 import math
+import numpy as np
 import tensorflow as tf
 from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.optimizers import RMSprop
+from keras import backend as K
 from keras.models import Model
 from keras.layers import Input
 from keras.layers import Dense
-from keras.layers import Reshape
 from keras.layers import Flatten
-from keras.layers import Conv2D
-from keras.layers import Conv2DTranspose
 from keras.layers import LeakyReLU
-from keras.layers import Dropout
-from keras.layers import Embedding
 from keras.layers import Concatenate
 from keras.layers import Activation
-from keras.layers import BatchNormalization
-from keras.initializers import RandomNormal
-from keras.constraints import Constraint
+from keras.layers import Discretization
+from keras.layers import Dropout
+from keras.losses import mean_squared_error, hinge
+
+# Custom loss function
+def custom_loss(y_true, y_pred):
+    mse = mean_squared_error(y_true, y_pred)
+    penalty = 0.
+    return mse + penalty
 
 # learning rate controller
 def step_decay(epoch):
@@ -43,22 +44,15 @@ def define_discriminator(in_shape=4):
 	in_second_det_data = Input(shape=in_shape)
 	# concat label as a channel
 	merge = Concatenate()([in_second_det_data, in_first_det_data])
-	
-	fe = Dense(128)(merge)
-	fe = LeakyReLU(alpha=0.2)(fe)
-	
-	fe = Dense(64)(fe)
-	fe = LeakyReLU(alpha=0.2)(fe)
 
+	fe = Dense(64)(merge)
+	fe = LeakyReLU(alpha=0.2)(fe)
+	fe = Dropout(0.4)(fe)
 	fe = Dense(64)(fe)
 	fe = LeakyReLU(alpha=0.2)(fe)
-	#fe = BatchNormalization()(fe)
-
-	fe = Dense(64)(fe)
+	fe = Dropout(0.4)(fe)
+	fe = Dense(32)(fe)
 	fe = LeakyReLU(alpha=0.2)(fe)
-	#fe = BatchNormalization()(fe)
-	
-	fe = Flatten()(fe)
 	# output
 	out_layer = Dense(1, activation='linear')(fe)
 	# define model
@@ -67,38 +61,36 @@ def define_discriminator(in_shape=4):
 	opt = Adam(learning_rate=0.1, beta_1=0.9, beta_2=0.999, epsilon=1e-07)
 	model.compile(loss='mse', optimizer=opt, metrics=['accuracy'])
 	return model
- 
+
 # define the standalone generator model
 def define_generator(latent_dim):
 	# data input
-	in_first_detector = Input(shape=4)
+    in_first_detector = Input(shape=4)
 	# noise input
-	in_lat = Input(shape=latent_dim)
+    in_lat = Input(shape=latent_dim)
+    merge = Concatenate()([in_lat, in_first_detector])
+    gen = Dense(512)(merge)
+    gen = Activation('relu')(gen)
 
-	n_nodes = 4 * 127
-	gen = Dense(n_nodes)(in_lat)
+    gen = Dense(512)(gen)
+    gen = Activation('relu')(gen)
+    gen = Dense(256)(gen)
+    gen = Activation('relu')(gen)
 
-	merge = Concatenate()([gen, in_first_detector])
-	gen = Dense(512)(merge)
-	gen = Activation('relu')(gen)
-	#gen = BatchNormalization()(gen)
-	gen = Dense(256)(gen)
-	gen = Activation('relu')(gen)
-	#gen = BatchNormalization()(gen)
-	gen = Dense(256)(gen)
-	gen = Activation('relu')(gen)
-	gen = Dense(128)(gen)
-	gen = Activation('relu')(gen)
-	gen = Dense(64)(gen)
-	gen = Activation('relu')(gen)
-	gen = Dense(16)(gen)
-	gen = Activation('relu')(gen)
+    gen = Dense(256)(gen)
+    gen = Activation('relu')(gen)
+    gen = Dense(128)(gen)
+    gen = Activation('relu')(gen)
+    gen = Dense(128)(gen)
+    gen = Activation('relu')(gen)
+    gen = Dense(64)(gen)
+    gen = Activation('relu')(gen)
 	# output
-	out_layer = Dense(4, activation='linear')(gen)
+    out_layer = Dense(4, activation='linear')(gen)
 	# define model
-	model = Model([in_lat, in_first_detector], out_layer)
-	return model
- 
+    model = Model([in_lat, in_first_detector], out_layer)
+    return model
+
 # define the combined generator and discriminator model, for updating the generator
 def define_gan(g_model, d_model):
 	# make weights in the critic not trainable
@@ -112,6 +104,6 @@ def define_gan(g_model, d_model):
 	# define gan model as taking noise and label and outputting a classification
 	model = Model([gen_noise, gen_data_input], gan_output)
 	# compile model
-	opt = Adam(learning_rate=0.1, beta_1=0.9, beta_2=0.999, epsilon=1e-07)
-	model.compile(loss='mse', optimizer=opt)
+	opt = Adam(learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07)
+	model.compile(loss='mse', optimizer=opt, run_eagerly=True)
 	return model

@@ -41,7 +41,7 @@ def train(g_model, d_model, gan_model, dataset, latent_dim, lr_decay, n_discrim_
 	for i in range(n_epochs):
 		# set learning rate for epoch
 		learning_rate = lr_decay(i+1)
-		backend.set_value(d_model.optimizer.learning_rate, learning_rate)
+		backend.set_value(d_model.optimizer.learning_rate, learning_rate/2)
 		backend.set_value(gan_model.optimizer.learning_rate, learning_rate)
 		#print('> Epoch: %d -- learning_rate = %.5f' % (i+1, scifor(learning_rate)))
 		# enumerate batches over the training set

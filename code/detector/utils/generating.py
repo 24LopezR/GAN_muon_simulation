@@ -10,6 +10,30 @@ from numpy.random import randn
 from numpy.random import randint
 import ROOT as r
 from array import array
+import utils.config as config
+
+def nearest_point(X):
+    X1 = []
+    for i in range(config.INPUT_DIM):
+        X1.append([find_nearest(config.DATASET_UNIQUES[i], X[j,i]) for j in range(X.shape[0])])
+    return np.asarray(X1).T
+
+def find_nearest(array, value):
+    """
+    Parameters
+    ----------
+    array : NumPy Array
+        Array of values to search from
+    value : TYPE
+        Input value of which we want the closest one in 'array'
+
+    Returns
+    -------
+    Numerical value in 'array' which is closest to 'value'
+    """
+    array = np.asarray(array)
+    idx = (np.abs(array - value)).argmin()
+    return array[idx]
 
 # # select real samples
 def generate_real_samples(dataset, n_samples, weights=None):
@@ -28,11 +52,11 @@ def generate_real_samples(dataset, n_samples, weights=None):
 	"""
 	# split into first and second detector information
 	# the info of first detector will be used as input to the deiscriminator and generator
-	second_detector, first_detector = dataset
+	m_vars, p_vars = dataset
 	# choose random instances
-	ix = randint(0, second_detector.shape[0], n_samples)
+	ix = randint(0, m_vars.shape[0], n_samples)
 	# select samples
-	X, input_data = second_detector[ix], first_detector[ix]
+	X, input_data = m_vars[ix], p_vars[ix]
 	if weights is not None:
 		w = weights[ix]
 	else:
@@ -57,14 +81,14 @@ def generate_latent_points(dataset, latent_dim, n_samples, weights=None):
 		w: weights corresponding to samples from X, numpy array of shape (N, 1)
 		y: class labels, numpy array of shape (N, 1)
 	"""
-	second_detector, first_detector = dataset
+	m_vars, p_vars = dataset
 	# generate points in the latent space
 	x_input = randn(latent_dim * n_samples)
 	# reshape into a batch of inputs for the network
 	z_input = x_input.reshape(n_samples, latent_dim)
 	# choose random instances
-	ix = randint(0, first_detector.shape[0], n_samples)
-	input_data = first_detector[ix]
+	ix = randint(0, p_vars.shape[0], n_samples)
+	input_data = p_vars[ix]
 	if weights is not None:
 		w = weights[ix]
 	else:
@@ -73,7 +97,7 @@ def generate_latent_points(dataset, latent_dim, n_samples, weights=None):
  
 # use the generator to generate n fake examples, with class labels
 def generate_fake_samples(generator, dataset, latent_dim, n_samples, weights=None):
-	"""
+    """
 	Generates a set of samples from a keras model to train the discriminator.
 	Arguments:
 	Input:
@@ -89,71 +113,25 @@ def generate_fake_samples(generator, dataset, latent_dim, n_samples, weights=Non
 		y: class labels, numpy array of shape (N, 1)
 	"""
 	# generate points in latent space
-	[z_input, input_data], w = generate_latent_points(dataset, latent_dim, n_samples, weights)
+    [z_input, input_data], w = generate_latent_points(dataset, latent_dim, n_samples, weights)
 	# predict outputs
-	X = generator.predict([z_input, input_data])
+    X = generator.predict([z_input, input_data])
+    X = nearest_point(X)
 	# create class labels
-	y = zeros((n_samples, 1))
-	return [X, input_data], w, y
+    y = zeros((n_samples, 1))
+    return [X, input_data], w, y
 	
 # use the generator to generate n fake examples, with class labels
 def generate_evaluation_samples(g_model, dataset, latent_dim, scaler):
-	[second_det, first_det] = dataset
+    [second_det, first_det] = dataset
 	# generate points in the latent space
-	n_samples = first_det.shape[0]
-	print('> Number of evaluation samples = ', n_samples)
-	noise_input = randn(latent_dim * n_samples).reshape(n_samples, latent_dim)
+    n_samples = first_det.shape[0]
+    print('> Number of evaluation samples = ', n_samples)
+    noise_input = randn(latent_dim * n_samples).reshape(n_samples, latent_dim)
 	# predict outputs
-	raw_predictions = g_model.predict([noise_input, first_det])
+    raw_predictions = g_model.predict([noise_input, first_det])
+    raw_predictions = nearest_point(raw_predictions)
 	# scale back the generated events
-	gen_raw_data = np.hstack((first_det, raw_predictions))
-	fake = scaler.inverse_transform(gen_raw_data)[:,4:]
-	return fake
-
-def generate_and_save(g_model, dataset, latent_dim, n_samples, scaler, output):
-	"""
-	Generates fake samples and saves them in a .root file.
-	Arguments:
-	Input:
-		g_mode: generator model
-		dataset: set of real data with the structure from load_real_samples()
-		latent_dim
-		n_samples: number of samples we want to generate
-		scaler: StandardScaler() like
-		output: name of output .root file
-	Output:
-		returns nothing
-	"""
-	f = r.TFile(output+'.root', "RECREATE")
-	tree = r.TTree("globalReco", "globalReco")
-	px1 = array('f', [0.])
-	py1 = array('f', [0.])
-	pvx1 = array('f', [0.])
-	pvy1 = array('f', [0.])
-	px2 = array('f', [0.])
-	py2 = array('f', [0.])
-	pvx2 = array('f', [0.])
-	pvy2 = array('f', [0.])
-	tree.Branch("px1", px1, 'px1/F')
-	tree.Branch("py1", py1, 'py1/F')
-	tree.Branch("pvx1", pvx1, 'pvx1/F')
-	tree.Branch("pvy1", pvy1, 'pvy1/F')
-	tree.Branch("px2", px2, 'px2/F')
-	tree.Branch("py2", py2, 'py2/F')
-	tree.Branch("pvx2", pvx2, 'pvx2/F')
-	tree.Branch("pvy2", pvy2, 'pvy2/F')
-	[Xtrans, input_data], _, _ = generate_fake_samples(g_model, dataset, latent_dim, n_samples)
-	data = np.hstack((input_data, Xtrans))
-	G = scaler.inverse_transform(data)
-	for i in range(G.shape[0]):
-		px1[0] = G[i,0]
-		py1[0] = G[i,1]
-		pvx1[0] = G[i,2]
-		pvy1[0] = G[i,3]
-		px2[0] = G[i,4] + px1[0] - 39*2 * pvx1[0]
-		py2[0] = G[i,5] + py1[0] - 39*2 * pvy1[0]
-		pvx2[0] = G[i,6] + pvx1[0]
-		pvy2[0] = G[i,7] + pvy1[0]
-		tree.Fill()
-	tree.Write()
-	f.Close()
+    gen_raw_data = np.hstack((first_det, raw_predictions))
+    fake = scaler.inverse_transform(gen_raw_data)[:,4:]
+    return fake

@@ -22,13 +22,13 @@ if __name__ == "__main__":
 	# _________________________________________________________________________________________
 	# Read user options
 	parser = OptionParser(usage="%prog --help")
-	parser.add_option("-g", "--gan",       dest="gan_model",   type="string",   default='LScGAN',         help="GAN model architecture")
-	parser.add_option("-i", "--input",     dest="input",       type="string",   default='input.root',     help="Input root filename")
+	parser.add_option("-g", "--gan",       dest="gan_model",   type="string",   default='LScGAN_dynlr',   help="GAN model architecture")
+	parser.add_option("-i", "--input",     dest="input",       type="string",   default='/home/ruben/Documents/TFM/GAN_muon_simulation/data/PipeTest_18p4_20_fullformat_18p4_20_seed3.root',     help="Input root filename")
 	parser.add_option("-o", "--output",    dest="output",      type="string",   default='output',         help="Output filename")
-	parser.add_option("-e", "--epochs",    dest="epochs",      type="int",      default=100,              help="N epochs")
+	parser.add_option("-e", "--epochs",    dest="epochs",      type="int",      default=200,              help="N epochs")
 	parser.add_option("-l", "--latent",    dest="latent",      type="int",      default=64,               help="Dimension of latent space")
-	parser.add_option("-b", "--batch",     dest="batch",       type="int",      default=256,              help="N batch")
-	parser.add_option("-k", "--khyp",      dest="k_hyp",       type="int",      default=5,                help="k hyperparameter")
+	parser.add_option("-b", "--batch",     dest="batch",       type="int",      default=1024,              help="N batch")
+	parser.add_option("-k", "--khyp",      dest="k_hyp",       type="int",      default=2,                help="k hyperparameter")
 	parser.add_option("-m", "--init",      dest="init",        type="string",   default=None,        help="Initial generator model")
 	parser.add_option("-t", "--no-train",  dest="train",       action="store_false")
 	(options, args) = parser.parse_args()

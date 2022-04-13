@@ -70,10 +70,10 @@ def define_generator(latent_dim):
 	in_first_detector = Input(shape=4)
 	# noise input
 	in_lat = Input(shape=latent_dim)
-	n_nodes = 4 * 127
-	gen = Dense(n_nodes)(in_lat)
-	merge = Concatenate()([gen, in_first_detector])
+	merge = Concatenate()([in_lat, in_first_detector])
 	gen = Dense(512)(merge)
+	gen = Activation('relu')(gen)
+	gen = Dense(512)(gen)
 	gen = Activation('relu')(gen)
 	gen = Dense(512)(gen)
 	gen = Activation('relu')(gen)
