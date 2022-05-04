@@ -4,12 +4,21 @@
 import numpy as np
 from numpy import zeros
 from numpy import ones
-from numpy.random import randn
+from numpy.random import randn, uniform
 from numpy.random import randint
-import matplotlib.pyplot as plt
+
+SIGMA = 0.1
+
+def generate_labels(value, dim, threshold=1):
+    # generate class labels
+    y = zeros(dim) if value == 0 else ones(dim)
+    z = uniform(0, 1, dim)
+    mask = z > threshold
+    y = np.logical_xor(y, mask)
+    return 1*y
 
 # # select real samples
-def generate_real_samples(dataset, n_samples, weights=None, ind=1):
+def generate_real_samples(dataset, n_samples):
     '''
     Generates a set of samples from the real data to train the discriminator.
 
@@ -34,24 +43,20 @@ def generate_real_samples(dataset, n_samples, weights=None, ind=1):
     '''
     input_data, activations = dataset
     # choose random instances
-    if ind % 2 == 1:
-        ix = randint(0, input_data.shape[0]//2, n_samples)
-    else:
-        ix = randint(input_data.shape[0]//2, input_data.shape[0], n_samples)
+    ix = randint(0, input_data.shape[0], n_samples)
     # select samples
     X, in_data = activations[ix], input_data[ix]
-    if weights is not None:
-        w = weights[ix]
-    else:
-        w = None
+    # add noise to generated samples
+    #print(X)
+    X = X + np.reshape(SIGMA * randn(X.size), X.shape)
     # generate class labels
-    y = ones((n_samples, 1))
+    y = generate_labels(1, (n_samples, 1), threshold=1)
     #print('Real samples')
     #print(X)
-    return [X, in_data], w, y
+    return [X, in_data], y
  
 # generate points in latent space as input for the generator
-def generate_latent_points(dataset, latent_dim, n_samples, weights=None, ind=0):
+def generate_latent_points(dataset, latent_dim, n_samples):
     '''
     Generates points in the latent space.
 
@@ -80,19 +85,12 @@ def generate_latent_points(dataset, latent_dim, n_samples, weights=None, ind=0):
 	# reshape into a batch of inputs for the network
     in_Z = x_input.reshape(n_samples, latent_dim)
 	# choose random instances
-    if ind % 2 == 1:
-        ix = randint(0, input_data.shape[0]//2, n_samples)
-    else:
-        ix = randint(input_data.shape[0]//2, input_data.shape[0], n_samples)
+    ix = randint(0, input_data.shape[0], n_samples)
     in_data = input_data[ix]
-    if weights is not None:
-        w = weights[ix]
-    else:
-        w = None
-    return [in_Z, in_data], w
+    return [in_Z, in_data]
  
 # use the generator to generate n fake examples, with class labels
-def generate_fake_samples(generator, dataset, latent_dim, n_samples, weights=None, ind=0):
+def generate_fake_samples(generator, dataset, latent_dim, n_samples, print_x=False):
     '''
     Generates a set of samples from a keras model to train the discriminator.
 
@@ -120,27 +118,32 @@ def generate_fake_samples(generator, dataset, latent_dim, n_samples, weights=Non
 
     '''
 	# generate points in latent space
-    [in_Z, _], w = generate_latent_points(dataset, latent_dim, n_samples, weights, ind=ind)
+    [in_Z, in_data] = generate_latent_points(dataset, latent_dim, n_samples)
 	# predict outputs
-    X = generator.predict(in_Z)
+    X = generator.predict([in_Z, in_data])
+    # add noise to generated samples
+    X = X + np.reshape(SIGMA * randn(X.size), X.shape)
     #print('Fake samples')
     #print(X)
-    X = np.round(X)
+    #X = np.round(X)
     #print('Fake samples')
-    #print(plt.hist(np.sum(X, axis=1), range=(0,6), bins=6)[0])
-    #print(X)
+    #print(plt.hist(np.sum(np.argmax(X,axis=2), axis=1), range=(0,6), bins=6)[0])
+    if print_x:
+        print(np.unique(np.sum(np.argmax(X,axis=2), axis=1)))
 	# create class labels
-    y = zeros((n_samples, 1))
-    return [X, None], w, y
+    y = generate_labels(0, (n_samples, 1), threshold=1)
+    return [X, in_data], y
 	
 # use the generator to generate n fake examples, with class labels
-def generate_evaluation_samples(g_model, dataset, latent_dim, scaler):
+def generate_evaluation_samples(g_model, dataset, latent_dim):
     input_data, activations = dataset
 	# generate points in the latent space
     n_samples = input_data.shape[0]
     print('> Number of evaluation samples = ', n_samples)
     in_Z = randn(latent_dim * n_samples).reshape(n_samples, latent_dim)
 	# predict outputs
-    activations_gen = np.round((g_model.predict(in_Z)))
-    #activations = scaler.inverse_transform(activations)
+    activations_gen = g_model.predict([in_Z, input_data])
+    # scale back the results
+    activations     = np.argmax(activations, axis=2)
+    activations_gen = np.argmax(activations_gen, axis=2)
     return activations, activations_gen

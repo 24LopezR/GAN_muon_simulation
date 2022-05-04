@@ -3,3 +3,4 @@ code/*/utils/__pycache__
 code/*/models/__pycache__
 code/__pycache__
 code/detector/__pycache__/
+code/simulator_TGAN_one_wire/models/layers/__pycache__/

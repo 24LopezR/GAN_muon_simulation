@@ -28,25 +28,15 @@ def heaviside(x):
     return 0.5*(1 + K.tanh(k*x))
 
 def penalty(x):
-    C = 1e-4
-    pen = C * (1 - K.sum(x))**2
+    k = 10
+    C = 0.01
+    pen = C * K.sqrt(K.abs((1 - K.sum(x)))) + C * K.exp(- k * K.square(K.sum(x)))
     return pen
-
-def mod_mse(y_true, y_pred):
-    MSE = mean_squared_error(y_true, y_pred)
-    Dhits = (K.sum(K.round(y_pred), axis=1)/K.sum(y_true, axis=1))
-    print(y_true.shape)
-    print(y_pred.shape)
-    y_true = K.print_tensor(y_true, message='ytrue = ')
-    y_pred = K.print_tensor(y_pred, message='ypred = ')
-    MSE = K.print_tensor(MSE, message='MSE = ')
-    Dhits = K.print_tensor(Dhits, message='D(hits) = ')
-    return MSE + Dhits
 
 # learning rate controller
 def step_decay(epoch):
-	initial_lrate = 1e-4
-	drop = 0.5
+	initial_lrate = 5e-5
+	drop = 0.75
 	epochs_drop = 25
 	lrate = initial_lrate * math.pow(drop, math.floor((1+epoch)/epochs_drop))
 	return lrate
@@ -79,14 +69,14 @@ def define_discriminator(n_wires=216):
     fe = Dropout(0.4)(fe)
     fe = BatchNormalization()(fe)
     # output
-    out_layer = Dense(1, activation='linear')(fe)
+    out_layer = Dense(1, activation='sigmoid')(fe)
     # define model
     model = Model([in_activations, in_data], out_layer)
-    #model.add_loss(penalty(out_layer))
+    model.add_loss(penalty(in_activations))
     # compile model
     #opt = RMSprop()
     opt = Adam(learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07)
-    model.compile(loss='mse', optimizer=opt, metrics=['accuracy'])
+    model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
     return model
 
 # define the standalone generator model
@@ -111,7 +101,7 @@ def define_generator(latent_dim, n_wires=216):
     gen = Dense(n_wires)(gen)
     gen = LeakyReLU(alpha=0.2)(gen)
 	# output
-    out_layer = Dense(n_wires, activation=act_fun_out, bias_initializer=RandomNormal(mean=-0.3, stddev=0.1))(gen)
+    out_layer = Dense(n_wires, activation=act_fun_out, bias_initializer=RandomNormal(mean=-0.2, stddev=0.1))(gen)
 	# define model
     model = Model([in_latent, in_data], out_layer)
     return model
@@ -132,5 +122,5 @@ def define_gan(g_model, d_model):
     # compile model
     #opt = RMSprop()
     opt = Adam(learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07)
-    model.compile(loss='mse', optimizer=opt)
+    model.compile(loss='binary_crossentropy', optimizer=opt)
     return model

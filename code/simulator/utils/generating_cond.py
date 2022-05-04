@@ -75,7 +75,7 @@ def generate_latent_points(dataset, latent_dim, n_samples, weights=None, ind=0):
     '''
     input_data, activations = dataset
     # generate points in the latent space
-    x_input = uniform(-1, 1, latent_dim * n_samples)
+    x_input = randn(latent_dim * n_samples)
 	# reshape into a batch of inputs for the network
     in_Z = x_input.reshape(n_samples, latent_dim)
 	# choose random instances
