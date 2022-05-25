@@ -4,3 +4,6 @@ code/*/models/__pycache__
 code/__pycache__
 code/detector/__pycache__/
 code/simulator_TGAN_one_wire/models/layers/__pycache__/
+/.venv/
+/.idea/
+/data/pipe_training_samples.csv

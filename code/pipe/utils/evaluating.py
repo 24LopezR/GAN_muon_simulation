@@ -26,8 +26,8 @@ def get_skewness(real, fake):
 def ks_test(real, fake):
 	p_values = [kstest(real[:,0], fake[:,0])[1], 
 	            kstest(real[:,1], fake[:,1])[1], 
-	            kstest(real[:,0], fake[:,2])[1], 
-	            kstest(real[:,1], fake[:,3])[1]]
+	            kstest(real[:,2], fake[:,2])[1],
+	            kstest(real[:,3], fake[:,3])[1]]
 	return p_values
 	
 def print_results(pull, cov, skew, p_values):

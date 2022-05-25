@@ -15,6 +15,7 @@ import tensorflow_probability as tfp
 
 TOL = 1e-20
 
+
 def gumbel_noise(shape: TensorShape):
     """Create a single sample from the standard (loc = 0, scale = 1) Gumbel distribution."""
     uniform_sample = uniform(shape)
@@ -81,3 +82,4 @@ class GumbelSoftmaxActivation(Layer):
         config = super().get_config().copy()
         config.update({'activation_info': self._activation_info})
         return config
+    

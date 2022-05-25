@@ -7,7 +7,7 @@ from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.compose import ColumnTransformer
 from textwrap import wrap
 
-MAX = 1
+MAX = 2
 GAMMA = 1e-4
 
 def encoding(X, max_value=1):
@@ -17,15 +17,18 @@ def encoding(X, max_value=1):
         nonzero[i,0:n.size] = n
     return np.asarray(nonzero, dtype=int)
 
-def one_hot_encode(X, n_values=2):
+def one_hot_encode(X, n_values=216):
     encoded = np.zeros((X.size, n_values))
     encoded[np.arange(X.size), X] = 1
     return encoded
 
 def efficiency(X):
-    broken_wires = (23,24,56,187,188,215)
-    for w in broken_wires:
-        X = np.delete(X, (X.argmax(axis=1)==w).nonzero(), axis=0)
+    broken_wires = (23,24,56 ,187,188,215)
+    efficiencies = (0, 0 ,0.3,0.2,0.3,0  )
+    for i in range(6):
+        p = np.random.uniform(0, 1, X.shape[0])
+        for j in range(X.shape[0]): 
+            if p[j] > efficiencies[i]: X[j,broken_wires[i]] = 0
     return X
 
 def load(inputfile):
@@ -55,6 +58,8 @@ def load(inputfile):
     input_data[:,1] = input_data[:,1]
     #__________________________________________________________________
     activations = data[:,2:]
+    # break some of the wires
+    activations = efficiency(activations)
     return [input_data, activations]
 
 def scale(dataset):
@@ -66,19 +71,17 @@ def scale(dataset):
     in_data_scaled = scaler.transform(in_data)
     
     # encode activations
-    #activations = encoding(activations)
+    activations = encoding(activations, MAX)
+    activations = activations[:,1]
      
     # one-hot encode activations
     #activations = np.apply_along_axis(lambda row: one_hot_encode(row, n_wires=216), axis=1, arr=activations)
-    #activations = np.apply_along_axis(lambda row: one_hot_encode(row), axis=1, arr=activations)
+    activations = np.apply_along_axis(lambda row: one_hot_encode(row), axis=0, arr=activations)
     #noise = np.random.uniform(0, GAMMA, activations.shape)
     #activations = activations + noise
     # renormalize
     #s = np.repeat(np.sum(activations, axis=1), 216, axis=0).reshape(activations.shape)
     #activations = activations/s
-    
-    # break some of the wires
-    activations = efficiency(activations)
     
     return [in_data_scaled, activations]
 

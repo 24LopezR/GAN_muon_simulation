@@ -32,8 +32,8 @@ def plot_wire_pos(activations, activations_gen):
     plt.rcParams["axes.labelsize"] = 18
     fig, (ax1, ax2) = plt.subplots(1, 2, sharex=True, sharey=True)
     
-    ax1.hist(activations,     color = 'black', range=(0,216), bins=216, label='Real',      log=False, bottom=0)
-    ax2.hist(activations_gen, color = 'red',   range=(0,216), bins=216, label='Generated', log=False, bottom=0)
+    ax1.hist(activations,     color = 'black', range=(0,216), bins=216, label='Real',      log=True, bottom=0)
+    ax2.hist(activations_gen, color = 'red',   range=(0,216), bins=216, label='Generated', log=True, bottom=0)
     ax1.legend()
     ax2.legend()
     fig.suptitle('Number of hits');
