@@ -9,15 +9,15 @@ import os
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from optparse import OptionParser
-from scipy.stats import skew, kstest
-
-from plotting import plot_correlation_2Dhist
+from scipy.stats import skew, kstest, wasserstein_distance
+import time
 
 
 def load(inputfile):
     data = pd.read_csv(inputfile).to_numpy()
     # Select only some radius
-    mask = [i in [4, 6, 8, 16, 18, 20] for i in data[:, 8]]
+    mask = [i in [4, 6, 8, 10, 14, 16, 18, 20] for i in data[:, 8]]
+    #mask = [i in [4, 6, 8, 16, 18, 20] for i in data[:, 8]]
     data = data[mask]
 
     variables = data[:, :8]
@@ -36,12 +36,12 @@ def load(inputfile):
 
 class Evaluation:
 
-    def __init__(self, generator_model, latent_dim, label_radius, real_samples, input_data, scaler):
+    def __init__(self, generator_model, latent_dim, dataset, scaler):
         self.generator_model = generator_model
         self.latent_dim = latent_dim
-        self.label_radius = label_radius
-        self.real_samples = real_samples
-        self.input_data = input_data
+        self.input_data = dataset[:,0:4]
+        self.real_samples = dataset[:,4:8]
+        self.label_radius = dataset[:,8:]
         self.scaler = scaler
 
     def generate_evaluation_samples(self):
@@ -114,23 +114,84 @@ class Evaluation:
                          for row in cov_fake]))
 
 
-def plot_difference(var1, var2, var1g, var2g, x_range, labels, scale, bins=200, title=''):
-    plt.rcParams["figure.figsize"] = (14, 7)
+def plot_difference(real, fake, bins=200, title=''):
+    plt.rcParams["figure.figsize"] = (28, 7)
     plt.rcParams["figure.titlesize"], plt.rcParams["axes.titlesize"] = (20, 20)
     plt.rcParams["axes.labelsize"] = 18
 
-    fig, (ax1, ax2) = plt.subplots(1, 2, sharex=True, sharey=True)
+    fig, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4)
+    axes = [ax1, ax2, ax3, ax4]
     b = bins
-    ax1.hist(var1, bins=b, density=False, range=x_range, histtype='step', color='black', label=labels[0])
-    ax1.hist(var1g, bins=b, density=False, range=x_range, histtype='step', color='red', label=labels[1])
-    ax2.hist(var2, bins=b, density=False, range=x_range, histtype='step', color='black', label=labels[0])
-    ax2.hist(var2g, bins=b, density=False, range=x_range, histtype='step', color='red', label=labels[1])
-    ax1.set_xlabel(title+' real samples')
-    ax2.set_xlabel(title+' generated samples')
-    ax1.set_yscale(scale)
-    ax2.set_yscale(scale)
-    ax1.legend()
-    ax2.legend()
+    x_range = [(-40,40), (-1.5,1.5)]
+    labels = ['$\Delta x$', '$\Delta y$', '$\Delta v_x$', '$\Delta v_y$']
+    for i in range(4):
+        axes[i].hist(real[:,i],
+                     bins=b,
+                     density=False,
+                     range=x_range[i//2],
+                     histtype='step',
+                     color='black',
+                     label='data')
+        axes[i].hist(fake[:, i],
+                     bins=b,
+                     density=False,
+                     range=x_range[i // 2],
+                     histtype='step',
+                     color='red',
+                     label='generated')
+        axes[i].set_yscale('log')
+        axes[i].legend()
+        WD = wasserstein_distance(real[:,i], fake[:,i])
+        axes[i].set_xlabel(labels[i]+' (WD = {:<10.5f})'.format(WD))
+
+    fig.suptitle(title)
+    return fig
+
+def plot_interpolation(real, fake, limit_up, limit_down, bins=200, title=''):
+    plt.rcParams["figure.figsize"] = (28, 7)
+    plt.rcParams["figure.titlesize"], plt.rcParams["axes.titlesize"] = (20, 20)
+    plt.rcParams["axes.labelsize"] = 18
+
+    fig, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4)
+    axes = [ax1, ax2, ax3, ax4]
+    b = bins
+    x_range = [(-40,40), (-1.5,1.5)]
+    labels = ['$\Delta x$', '$\Delta y$', '$\Delta v_x$', '$\Delta v_y$']
+    for i in range(4):
+        axes[i].hist(real[:,i],
+                     bins=b,
+                     density=False,
+                     range=x_range[i//2],
+                     histtype='step',
+                     color='black',
+                     label='data')
+        axes[i].hist(limit_up[:, i],
+                     bins=b,
+                     density=False,
+                     range=x_range[i // 2],
+                     histtype='step',
+                     color='pink',
+                     label='generated (r=14mm)')
+        axes[i].hist(limit_down[:, i],
+                     bins=b,
+                     density=False,
+                     range=x_range[i // 2],
+                     histtype='step',
+                     color='pink',
+                     label='generated (r=10mm)')
+        axes[i].hist(fake[:, i],
+                     bins=b,
+                     density=False,
+                     range=x_range[i // 2],
+                     histtype='step',
+                     color='red',
+                     label='generated')
+        axes[i].set_yscale('log')
+        axes[i].legend()
+        WD = wasserstein_distance(real[:,i], fake[:,i])
+        axes[i].set_xlabel(labels[i]+' (WD = {:<10.5f})'.format(WD))
+
+    fig.suptitle(title)
     return fig
 
 
@@ -159,44 +220,58 @@ if __name__ == "__main__":
 
     print('Loading_data...')
     dataset, scaler = load(datafile)
-    mask06 = (dataset[:, 8:].argmax(axis=1) == 1)
-    mask18 = (dataset[:, 8:].argmax(axis=1) == 4)
+    n = 300000
+    data_reduced = np.zeros((8*n,dataset.shape[1]))
+    for i in range(8):
+        data_reduced[n*i:n*(i+1)] = dataset[dataset[:,8:].argmax(1)==i][0:n]
+    dataset = data_reduced
+    print('Number of evaluation samples = '+str(dataset.shape[0]))
 
-    input_data06 = dataset[:, 0:4][mask06]
-    real_samples06 = dataset[:, 4:8][mask06]
-    labels06 = dataset[:, 8:][mask06]
-    input_data18 = dataset[:, 0:4][mask18]
-    real_samples18 = dataset[:, 4:8][mask18]
-    labels18 = dataset[:, 8:][mask18]
+    interpolation_data = pd.read_csv(datafile).to_numpy()
+    interpolation_data = interpolation_data[interpolation_data[:,8]==12][0:n,0:8]
+    interpolation_data = scaler.transform(interpolation_data)
+    interpolation_labels = np.zeros((n,8))
+    interpolation_labels[:,3:5] = 0.5
 
-    e06 = Evaluation(g_model, LATENT_DIM, label_radius=labels06,
-                     real_samples=real_samples06, input_data=input_data06, scaler=scaler)
-    e18 = Evaluation(g_model, LATENT_DIM, label_radius=labels18,
-                     real_samples=real_samples18, input_data=input_data18, scaler=scaler)
+    eval_interpolation = Evaluation(g_model, LATENT_DIM, dataset=np.hstack([interpolation_data, interpolation_labels]),
+                                    scaler=scaler)
+    eval = Evaluation(g_model, LATENT_DIM, dataset=dataset, scaler=scaler)
+
     print('Generating evaluation samples...')
-    e06.generate_evaluation_samples()
-    e18.generate_evaluation_samples()
+    start_time = time.time()
+    print('    Start time = '+str(start_time))
+    eval_interpolation.generate_evaluation_samples()
+    eval.generate_evaluation_samples()
+    print('    End time = '+str(time.time()))
+    print("--- Generation time: %s seconds ---" % (time.time() - start_time))
+    real_dataset = eval.real_samples
+    fake_dataset = eval.fake_samples
+    labels = eval.label_radius
+    real_inter = eval_interpolation.real_samples
+    fake_inter = eval_interpolation.fake_samples
 
     print('Plotting results...')
-    e06.evaluate(title="6mm radius")
-    e18.evaluate(title="18mm radius")
-    real_dataset_20 = e06.real_samples
-    fake_dataset_20 = e06.fake_samples
-    real_dataset_04 = e18.real_samples
-    fake_dataset_04 = e18.fake_samples
     output = 'test'
     out = PdfPages('evaluation_' + output + '.pdf')
-    out.savefig(plot_difference(real_dataset_20[:, 0], fake_dataset_20[:, 0],
-                                real_dataset_04[:, 0], fake_dataset_04[:, 0],
-                                (-25, 25), ['r=6mm', 'r=18mm'], 'log', title='$\Delta_x$'))
-    out.savefig(plot_difference(real_dataset_20[:, 2], fake_dataset_20[:, 2],
-                                real_dataset_04[:, 2], fake_dataset_04[:, 2],
-                                (-1.5, 1.5), ['r=6mm', 'r=18mm'], 'log', title='$\Delta_{v_x}$'))
-    out.savefig(plot_correlation_2Dhist(real_dataset_20[:, 0], real_dataset_20[:, 2],
-                                        fake_dataset_20[:, 0], fake_dataset_20[:, 2],
-                                        [[-15, 15], [-1, 1]], ['$\Delta x$ (6mm)', '$\Delta v_x$ (6mm)']))
-    out.savefig(plot_correlation_2Dhist(real_dataset_04[:, 1], real_dataset_04[:, 3],
-                                        fake_dataset_04[:, 1], fake_dataset_04[:, 3],
-                                        [[-15, 15], [-1, 1]], ['$\Delta y$ (18mm)', '$\Delta v_y$ (18mm)']))
+    num_classes = labels.shape[1]
+    radius = [4,6,8,10,14,16,18,20]
+    for j in range(num_classes):
+        out.savefig(plot_difference(real_dataset[labels.argmax(1)==j],
+                                    fake_dataset[labels.argmax(1)==j],
+                                    bins=150,
+                                    title='r = '+str(radius[j])+'mm'))
+    out.savefig(plot_interpolation(real_inter,
+                                   fake_inter,
+                                   limit_down=fake_dataset[labels.argmax(1)==3],
+                                   limit_up=fake_dataset[labels.argmax(1)==4],
+                                   bins=150,
+                                   title='r = 12mm'))
+
+    #out.savefig(plot_correlation_2Dhist(real_dataset_20[:, 0], real_dataset_20[:, 2],
+    #                                    fake_dataset_20[:, 0], fake_dataset_20[:, 2],
+    #                                    [[-15, 15], [-1, 1]], ['$\Delta x$ (6mm)', '$\Delta v_x$ (6mm)']))
+    #out.savefig(plot_correlation_2Dhist(real_dataset_04[:, 1], real_dataset_04[:, 3],
+    #                                    fake_dataset_04[:, 1], fake_dataset_04[:, 3],
+    #                                    [[-15, 15], [-1, 1]], ['$\Delta y$ (18mm)', '$\Delta v_y$ (18mm)']))
     out.close()
     print('Evaluation done!')

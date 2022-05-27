@@ -132,7 +132,7 @@ if __name__ == "__main__":
     print('Loading_data...')
     dataset, scaler = load(datafile)
     variables, labels = dataset
-    variables = variables[labels==20]
+    variables = variables[labels==16]
 
     print('Generating evaluation samples...')
     e = Evaluation(g_model, LATENT_DIM, variables[:,4:8], variables[:,0:4], scaler)
@@ -144,12 +144,18 @@ if __name__ == "__main__":
     fake_dataset = e.fake_samples
     output = 'test'
     out = PdfPages('evaluation_' + output + '.pdf')
-    out.savefig(plot_difference(real_dataset[:,0], real_dataset[:,1],
-                                fake_dataset[:,0], fake_dataset[:,1],
-                                (-25, 25), ['$\Delta x$', '$\Delta y$'], 'log'))
-    out.savefig(plot_difference(real_dataset[:,2], real_dataset[:,3],
-                                fake_dataset[:,2], fake_dataset[:,3],
-                                (-1.5, 1.5), ['$\Delta v_x$', '$\Delta v_y$'], 'log'))
+    out.savefig(plot_difference(real_dataset[:,0],
+                                fake_dataset[:,0],
+                                (-40, 40), '$\Delta x$', 'log'))
+    out.savefig(plot_difference(real_dataset[:,1],
+                                fake_dataset[:,1],
+                                (-40, 40), '$\Delta y$', 'log'))
+    out.savefig(plot_difference(real_dataset[:,2],
+                                fake_dataset[:,2],
+                                (-1.5, 1.5), '$\Delta v_x$', 'log'))
+    out.savefig(plot_difference(real_dataset[:,3],
+                                fake_dataset[:,3],
+                                (-1.5, 1.5), '$\Delta v_y$', 'log'))
     out.savefig(plot_correlation_2Dhist(real_dataset[:,0], real_dataset[:,2],
                                         fake_dataset[:,0], fake_dataset[:,2],
                                         [[-15, 15], [-1, 1]], ['$\Delta x$', '$\Delta v_x$']))

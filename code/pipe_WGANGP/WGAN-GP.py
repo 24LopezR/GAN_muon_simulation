@@ -46,13 +46,11 @@ def get_discriminator_model(in_shape):
     # concat label as a channel
     merge = Concatenate()([in_second_detector, in_first_det_data])
 
-    fe = Dense(512)(merge)
+    fe = Dense(64)(merge)
     fe = LeakyReLU(alpha=0.2)(fe)
-    fe = Dense(256)(fe)
+    fe = Dense(32)(fe)
     fe = LeakyReLU(alpha=0.2)(fe)
-    fe = Dense(128)(fe)
-    fe = LeakyReLU(alpha=0.2)(fe)
-    fe = Dense(64)(fe)
+    fe = Dense(16)(fe)
     fe = LeakyReLU(alpha=0.2)(fe)
 
     # output
@@ -67,21 +65,14 @@ def get_generator_model(in_shape, latent_dim):
     in_first_detector = Input(shape=in_shape)
     # noise input
     in_lat = Input(shape=latent_dim)
-    gen = Dense(508)(in_lat)
 
-    merge = Concatenate()([gen, in_first_detector])
+    merge = Concatenate()([in_lat, in_first_detector])
 
-    gen = Dense(512)(merge)
+    gen = Dense(16)(merge)
     gen = Activation('relu')(gen)
-    gen = Dense(256)(gen)
-    gen = Activation('relu')(gen)
-    gen = Dense(256)(gen)
-    gen = Activation('relu')(gen)
-    gen = Dense(128)(gen)
+    gen = Dense(32)(gen)
     gen = Activation('relu')(gen)
     gen = Dense(64)(gen)
-    gen = Activation('relu')(gen)
-    gen = Dense(16)(gen)
     gen = Activation('relu')(gen)
 
     # output
@@ -270,8 +261,8 @@ if __name__ == "__main__":
     sess = tf.compat.v1.Session(config=config)
     backend.set_session(sess)
 
-    BATCH_SIZE = 2048
-    LATENT_DIM = 64
+    BATCH_SIZE = 5000
+    LATENT_DIM = 16
     EPOCHS = 1000
     LEARNING_RATE = 0.0001
     K = 5
@@ -291,7 +282,7 @@ if __name__ == "__main__":
     print('Loading data: '+inputfile)
     [train_samples, labels], scaler = load(inputfile)
     # Take only samples with one pipe radius value
-    train_samples = train_samples[labels==20]
+    train_samples = train_samples[labels==16]
     print(f"Data shape: {train_samples.shape}")
 
     d_model = get_discriminator_model(in_shape=4)
