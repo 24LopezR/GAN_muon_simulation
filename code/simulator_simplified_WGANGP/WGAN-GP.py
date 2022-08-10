@@ -6,7 +6,9 @@ from tensorflow.keras import layers
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.optimizers import RMSprop
 from tensorflow.keras.callbacks import LearningRateScheduler
+from tensorflow.nn import softmax
 from keras.models import Model
+from keras.layers import Layer
 from keras.layers import Input
 from keras.layers import Dense
 from keras.layers import Reshape
@@ -25,13 +27,19 @@ import pandas as pd
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 import matplotlib.pyplot as plt
 
-from layers.gumbel_softmax import GumbelSoftmaxActivation
+from layers.gumbel_softmax import GumbelSoftmaxActivation, GumbelSoftmaxLayer
+from layers.adapstep import AdaptativeStepActivation
 
 def load(inputfile):
     data = pd.read_csv(inputfile).to_numpy()
-    in_data = data[:,0:2]
-    n_active = data[:,2].astype(int)
-    first_active = data[:,3].astype(int)
+    in_data = data[:, 0:2]
+    first_active = data[:, 2].astype(int)
+    last_active = data[:, 3].astype(int)
+    activations = np.zeros((data.shape[0],216))
+    for i in range(data.shape[0]):
+        activations[i,first_active[i]:(last_active[i]+1)] = 1
+    #n = (last_active - first_active).astype(int)
+    #cat = 216 * n + first_active - np.vectorize(lambda x: np.sum(range(x)))(n)
 
     # scale input data (x, vx)
     weights = 1 / np.sqrt(in_data[:, 0] ** 2 + in_data[:, 1] ** 2)
@@ -40,44 +48,32 @@ def load(inputfile):
     in_data_scaled = scaler.transform(in_data)
 
     enc = OneHotEncoder(sparse=False)
-    activations = np.concatenate((n_active.reshape((-1, 1)),
-                                  first_active.reshape((-1, 1))), axis=1)
-    enc.fit(activations)
-    activations = enc.transform(activations)
-
+    #enc.fit(cat.reshape(-1,1))
+    #cat = enc.transform(cat.reshape(-1,1))
+    # print(activations.shape)
+    # print(activations[0])
     return np.hstack([in_data_scaled, activations]), enc
 
-def get_discriminator_model(input_dim=221):
+
+def get_discriminator_model(input_dim=1070):
     # define model
     input_layer = Input(shape=input_dim)
     # data input
     in_data = Input(shape=2)
 
-    critic_n = Concatenate()([input_layer[:, 0:5], in_data])
-    critic_n = Dense(100)(critic_n)
-    critic_n = LeakyReLU(alpha=0.2)(critic_n)
-    critic_n = Dense(50)(critic_n)
-    critic_n = LeakyReLU(alpha=0.2)(critic_n)
-    critic_n = Dense(25)(critic_n)
-
-    critic_w = Concatenate()([input_layer[:, 5:221], in_data])
-    critic_w = Dense(400)(critic_w)
-    critic_w = LeakyReLU(alpha=0.2)(critic_w)
-    critic_w = Dense(200)(critic_w)
-    critic_w = LeakyReLU(alpha=0.2)(critic_w)
-    critic_w = Dense(100)(critic_w)
-    critic_w = LeakyReLU(alpha=0.2)(critic_w)
-    critic_w = Dense(50)(critic_w)
-    critic_w = LeakyReLU(alpha=0.2)(critic_w)
-
-    critic = Concatenate()([critic_n, critic_w])
-    critic = Dense(4)(critic)
+    critic = Concatenate()([input_layer, in_data])
+    critic = Dense(512)(critic)
+    critic = LeakyReLU(alpha=0.2)(critic)
+    critic = Dense(256)(critic)
+    critic = LeakyReLU(alpha=0.2)(critic)
+    critic = Dense(128)(critic)
     critic = LeakyReLU(alpha=0.2)(critic)
 
     out_layer = Dense(1)(critic)
     # define model
     d_model = Model([input_layer, in_data], out_layer)
     return d_model
+
 
 def get_generator_model(latent_dim):
     # noise input
@@ -86,33 +82,19 @@ def get_generator_model(latent_dim):
     in_data = Input(shape=2)
 
     gen = Concatenate()([in_lat, in_data])
-    gen = Dense(50)(gen)
+    gen = Dense(128)(gen)
     gen = LeakyReLU(alpha=0.2)(gen)
-    gen = Dense(100)(gen)
+    gen = Dense(256)(gen)
     gen = LeakyReLU(alpha=0.2)(gen)
-    gen = Dense(200)(gen)
+    gen = Dense(512)(gen)
     gen = LeakyReLU(alpha=0.2)(gen)
-    gen = Dense(400)(gen)
-    gen = LeakyReLU(alpha=0.2)(gen)
-    gen = Dense(400)(gen)
-    gen = LeakyReLU(alpha=0.2)(gen)
-
-    n_active = gen[:, 0:50]
-    n_active = Dense(5)(n_active)
-    n_active = LeakyReLU(alpha=0.2)(n_active)
-    n_active = GumbelSoftmaxActivation(n_categorical_variables=1, tau=0.2, name='GumbelSoftmax_N')(n_active)
-
-    first_active = gen[:, 50:400]
-    first_active = Dense(350)(first_active)
-    first_active = LeakyReLU(alpha=0.2)(first_active)
-    first_active = Dense(216)(first_active)
-    first_active = LeakyReLU(alpha=0.2)(first_active)
-    first_active = GumbelSoftmaxActivation(n_categorical_variables=1, tau=0.2, name='GumbelSoftmax_W')(first_active)
     # output
-    out_layer = Concatenate()([n_active, first_active])
+    gen = Dense(216)(gen)
+    out_layer = Activation('sigmoid')(gen)
     # define model
     g_model = Model([in_lat, in_data], out_layer)
     return g_model
+
 
 class WGAN(keras.Model):
     def __init__(
@@ -165,12 +147,29 @@ class WGAN(keras.Model):
         gp = tf.reduce_mean((norm - 1.0) ** 2)
         return gp
 
-    def train_step(self, real_images):
-        if isinstance(real_images, tuple):
-            real_images = real_images[0]
+    def sum_penalty(self, batch_size, real_samples, fake_samples):
+        sum_real = tf.math.reduce_sum(real_samples, axis=[1], keepdims=False)
+        sum_fake = tf.math.reduce_sum(fake_samples, axis=[1], keepdims=False)
+        sp = tf.reduce_mean(tf.exp(- 4 * (sum_real - sum_fake) ** 2))
+        return sp
+
+    def smooth_round(self, fake_samples):
+        x = fake_samples / tf.reduce_max(fake_samples, axis=1, keepdims=True)
+        return tf.minimum(tf.maximum(x - 0.4999, 0) * 10000, 1)
+
+    def train_step(self, real_data):
+        if isinstance(real_data, tuple):
+            real_images = real_data[0]
 
         # Get the batch size
-        batch_size = tf.shape(real_images)[0]
+        batch_size = tf.shape(real_data)[0]
+
+        # Split dataset
+        real_samples = real_data[:, 2:]
+        in_data = real_data[:, 0:2]
+
+        # Add noise to real samples
+        #real_samples = real_samples + tf.random.normal(shape=tf.shape(real_samples), mean=0.0, stddev=0.05)
 
         # For each batch, we are going to perform the
         # following steps as laid out in the original paper:
@@ -191,22 +190,22 @@ class WGAN(keras.Model):
                 shape=(batch_size, self.latent_dim)
             )
 
-            random_in_data = real_images[:,0:2]
-
             with tf.GradientTape() as tape:
                 # Generate fake images from the latent vector
-                fake_images = self.generator([random_latent_vectors, random_in_data], training=True)
+                fake_samples = self.generator([random_latent_vectors, in_data], training=True)
                 # Get the logits for the fake images
-                fake_logits = self.discriminator([fake_images, random_in_data], training=True)
+                fake_logits = self.discriminator([self.smooth_round(fake_samples), in_data], training=True)
                 # Get the logits for the real images
-                real_logits = self.discriminator([real_images[:,2:], random_in_data], training=True)
+                real_logits = self.discriminator([real_samples, in_data], training=True)
 
                 # Calculate the discriminator loss using the fake and real image logits
                 d_cost = self.d_loss_fn(real_img=real_logits, fake_img=fake_logits)
                 # Calculate the gradient penalty
-                gp = self.gradient_penalty(batch_size, real_images[:,2:], fake_images, random_in_data)
+                gp = self.gradient_penalty(batch_size, real_samples, fake_samples, in_data)
+                # Calculate additional termis in loss function
+                sp = self.sum_penalty(batch_size, real_samples, self.smooth_round(fake_samples))
                 # Add the gradient penalty to the original discriminator loss
-                d_loss = d_cost + gp * self.gp_weight
+                d_loss = d_cost + gp * self.gp_weight + sp * 10
 
             # Get the gradients w.r.t the discriminator loss
             d_gradient = tape.gradient(d_loss, self.discriminator.trainable_variables)
@@ -218,14 +217,18 @@ class WGAN(keras.Model):
         # Train the generator
         # Get the latent vector
         random_latent_vectors = tf.random.normal(shape=(batch_size, self.latent_dim))
-        random_in_data = real_images[:,0:2]
+
         with tf.GradientTape() as tape:
             # Generate fake images using the generator
-            generated_images = self.generator([random_latent_vectors, random_in_data], training=True)
+            generated_samples = self.generator([random_latent_vectors, in_data], training=True)
             # Get the discriminator logits for fake images
-            gen_img_logits = self.discriminator([generated_images, random_in_data], training=True)
+            gen_img_logits = self.discriminator([self.smooth_round(generated_samples), in_data], training=True)
             # Calculate the generator loss
             g_loss = self.g_loss_fn(gen_img_logits)
+            # Calculate additional termis in loss function
+            sp = self.sum_penalty(batch_size, real_samples, self.smooth_round(generated_samples))
+            # Calculate total loss
+            g_loss = g_loss - sp * 10
 
         # Get the gradients w.r.t the generator loss
         gen_gradient = tape.gradient(g_loss, self.generator.trainable_variables)
@@ -234,35 +237,34 @@ class WGAN(keras.Model):
             zip(gen_gradient, self.generator.trainable_variables)
         )
 
-        # Keep track of losses
-        #self.d_loss_hist.append(d_loss)
-        #self.g_loss_hist.append(g_loss)
         return {"d_loss": d_loss, "g_loss": g_loss}
 
+
 class GANMonitor(keras.callbacks.Callback):
+    def __init__(self, saveEvery=50):
+        self.saveEvery = saveEvery
+
     def on_epoch_end(self, epoch, logs=None):
-        if (epoch + 1) % 50 == 0:
+        if (epoch+1) % self.saveEvery == 0:
             filename = 'generator_model_%03d.h5' % (epoch + 1)
             self.model.generator.save(filename)
 
 
 class PlotLosses(keras.callbacks.Callback):
-    def on_train_begin(self, logs=None):
-        self.i = 0
+    def on_train_begin(self, logs={}):
         self.x = []
         self.d_loss = []
         self.g_loss = []
         self.logs = []
 
-    def on_epoch_end(self, epoch, logs=None):
+    def on_epoch_end(self, epoch, logs={}):
         self.logs.append(logs)
-        self.x.append(self.i)
-        self.d_loss.append(logs.get('d_loss'))
-        self.g_loss.append(logs.get('g_loss'))
-        self.i += 1
+        self.x.append(epoch)
+        self.d_loss.append(logs['d_loss'])
+        self.g_loss.append(logs['g_loss'])
 
-        plt.plot(self.x, self.d_loss, label="Critic loss")
-        plt.plot(self.x, self.g_loss, label="Gen loss")
+        plt.plot(self.x, self.d_loss, label="Critic loss", linewidth=0.5)
+        plt.plot(self.x, self.g_loss, label="Gen loss", linewidth=0.5)
         plt.legend()
         plt.savefig('plot_line_plot_loss.png', dpi=400)
         plt.close()
@@ -293,12 +295,12 @@ if __name__ == "__main__":
     backend.set_session(sess)
 
     BATCH_SIZE = 1024
-    LATENT_DIM = 400
+    LATENT_DIM = 64
     EPOCHS = 3000
-    LEARNING_RATE = 0.0005
+    LEARNING_RATE = 0.0001
     K = 5
 
-    inputfile = "/home/ruben/GAN_muon_simulation/data/sim2.csv"
+    inputfile = "/home/ruben/GAN_muon_simulation/data/sim_start_final.csv"
 
     print('_' * 100)
     print('OPTIONS WGAN-GP')
@@ -314,7 +316,7 @@ if __name__ == "__main__":
     train_samples, encoder = load(inputfile)
     print(f"Data shape: {train_samples.shape}")
 
-    d_model = get_discriminator_model(input_dim=221)
+    d_model = get_discriminator_model(input_dim=216)
     d_model.summary()
     g_model = get_generator_model(latent_dim=LATENT_DIM)
     g_model.summary()
@@ -343,7 +345,7 @@ if __name__ == "__main__":
     # Instantiate the custom Keras callbacks.
     cbk = GANMonitor()
     pltloss = PlotLosses()
-    lrs = LearningRateScheduler(StepDecay(initLearningRate=LEARNING_RATE, factor=0.75, dropEvery=100), verbose=0)
+    lrs = LearningRateScheduler(StepDecay(initLearningRate=LEARNING_RATE, factor=1, dropEvery=1000), verbose=0)
 
 
     # Instantiate the WGAN model.

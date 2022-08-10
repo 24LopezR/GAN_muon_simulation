@@ -7,10 +7,12 @@ File to generate data that simulates wire activation.
 
 @author: ruben
 """
+import ROOT as r
 import numpy as np
 from numpy.linalg import norm
 import matplotlib.pyplot as plt
 import pandas as pd
+from tqdm import tqdm
 
 def shortest_distance(wire_x, wire_z, x_0, z_0, theta):
     return np.abs(np.cos(theta)*(wire_x-x_0) - np.sin(theta)*(wire_z-z_0))
@@ -31,32 +33,31 @@ if __name__ == "__main__":
     wire_z = 0
     
     # Initialize data matrix
-    in_data     = []
+    in_data = []
     activations = []
     
     print('Progress:')
-    while len(in_data) <= (n_events):
-        # Generate random p variables
-        theta_temp = np.pi/2 * np.random.uniform(low=-1, high=1)
-        x_temp = 40 * np.random.uniform(low=-1, high=1)
+    with tqdm(total = n_events) as pbar:
+        while len(in_data) <= (n_events):
+            # Generate random p variables
+            theta_temp = np.pi/2 * np.random.uniform(low=-1, high=1)
+            x_temp = 40 * np.random.uniform(low=-1, high=1)
 
-        # Compute activated wires
-        act = compute_activations(wire_pos=wire_pos, wire_z=wire_z,
-                                  x_0=x_temp, z_0=z_0, theta=theta_temp)
+            # Compute activated wires
+            act = compute_activations(wire_pos=wire_pos, wire_z=wire_z,
+                                      x_0=x_temp, z_0=z_0, theta=theta_temp)
 
-        if np.sum(act) > 0 and np.sum(act) <= 5:
-            in_data.append([x_temp, np.tan(theta_temp)])
-            to_save_data = [np.sum(act), act.nonzero()[0][0]]
-            activations.append(to_save_data)
-            if len(in_data) % 5 == 0:
-                print("\r", end="")
-                print('Events generated: '+str(len(in_data)), end='')
+            if np.sum(act) > 0 and np.sum(act) <= 5:
+                in_data.append([x_temp, np.tan(theta_temp)])
+                to_save_data = [act.nonzero()[0][0], act.nonzero()[0][-1]]
+                activations.append(to_save_data)
+                pbar.update(1)
     
-    in_data     = np.asarray(in_data) # [px, pvx]
+    in_data = np.asarray(in_data) # [px, pvx]
     activations = np.asarray(activations)
     data = np.hstack((in_data, activations))
 
     plt.hist(in_data[:,0], range=(-40,40), bins=200)
     plt.hist(in_data[:,1], range=(-10,10), bins=200)
     plt.show()
-    pd.DataFrame(data).to_csv("/home/ruben/GAN_muon_simulation/data/sim2.csv", header=False, index=False)
+    pd.DataFrame(data).to_csv("/home/ruben/GAN_muon_simulation/data/sim_start_final.csv", header=False, index=False)

@@ -78,10 +78,23 @@ class Evaluation:
         return skew_real, skew_fake, skew_real - skew_fake
 
     def ks_test(self):
-        p_values = [kstest(self.real_samples[:, 0], self.fake_samples[:, 0])[1],
-                    kstest(self.real_samples[:, 1], self.fake_samples[:, 1])[1],
-                    kstest(self.real_samples[:, 2], self.fake_samples[:, 2])[1],
-                    kstest(self.real_samples[:, 3], self.fake_samples[:, 3])[1]]
+        p_values = []
+        x_range = [(-40, 40), (-1, 1)]
+        nreal, bins, _ = plt.hist(self.real_samples[:, 0][self.label_radius.argmax(1) == 0],
+                               bins=100,
+                               range=x_range[j // 2])
+        print(nreal)
+        # for i in range(8):
+        #     row = []
+        #     for j in range(4):
+        #         nreal, _, _ = plt.hist(self.real_samples[:,j][self.label_radius.argmax(1) == i],
+        #                                bins=100,
+        #                                range=x_range[j//2])
+        #         nfake, _, _ = plt.hist(self.fake_samples[:,j][self.label_radius.argmax(1) == i],
+        #                                bins=100,
+        #                                range=x_range[j//2])
+        #         print(kstest(nreal, nfake)[1])
+        #     p_values.append(row)
         return p_values
 
     def evaluate(self, title):
@@ -104,8 +117,8 @@ class Evaluation:
         print("{:<20} {:<15.3f} {:<15.3f} {:<15.3f} {:<15.3f}".format('Skewness_fake', skew_fake[0], skew_fake[1],
                                                                       skew_fake[2], skew_fake[3], ))
         print(" " * 100)
-        print("{:<20} {:<15.3f} {:<15.3f} {:<15.3f} {:<15.3f}".format('KS-test (p-value)', p_values[0], p_values[1],
-                                                                      p_values[2], p_values[3]))
+        #print("{:<20} {:<15.3f} {:<15.3f} {:<15.3f} {:<15.3f}".format('KS-test (p-value)', p_values[0], p_values[1],
+        #                                                              p_values[2], p_values[3]))
         print("." * 100)
         print("    Covariance matrices")
         print("." * 100)
@@ -121,66 +134,48 @@ class Evaluation:
 
 
 def plot_difference(real, fake, nbins=200, title=''):
-    plt.rcParams["figure.figsize"] = (28, 9)
+    plt.rcParams["figure.figsize"] = (28, 7)
     plt.rcParams["figure.titlesize"], plt.rcParams["axes.titlesize"] = (20, 20)
     plt.rcParams["axes.labelsize"] = 18
 
-    fig, ((ax1, ax2, ax3, ax4), (ax1r, ax2r, ax3r, ax4r)) = plt.subplots(2, 4, sharex=False,
-                                                                         gridspec_kw={'height_ratios': [3, 1]})
+    fig, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4, sharex=False)
     axes = [ax1, ax2, ax3, ax4]
-    axesr = [ax1r, ax2r, ax3r, ax4r]
     x_range = [(-40,40), (-1,1)]
     labels = ['$\Delta x$', '$\Delta y$', '$\Delta v_x$', '$\Delta v_y$']
     for i in range(4):
-        ns, bins, patches = axes[i].hist([real[:,i], fake[:,i]],
+        axes[i].hist([real[:300000,i], real[-300000:, i]],
                                          bins=nbins,
                                          density=False,
                                          range=x_range[i//2],
                                          histtype='step',
-                                         color=['black','red'],
-                                         label=['data','generated'])
+                                         color=['blue','red'],
+                                         label=['data 4 mm','data 20 mm'])
+        axes[i].hist([fake[:300000,i], fake[-300000:, i]],
+                     bins=nbins,
+                     density=False,
+                     range=x_range[i//2],
+                     histtype='step',
+                     color=['blue', 'red'],
+                     linestyle='dashed',
+                     label=['generated 4 mm', 'generated 20 mm'])
         axes[i].set_yscale('log')
         axes[i].set_xlim(left=x_range[i // 2][0], right=x_range[i // 2][1])
         axes[i].legend()
-        WD = wasserstein_distance(real[:,i], fake[:,i])
-
-        ## Ratio plot
-        r = []
-        b = []
-        r_xerror = []
-        r_yerror = []
-        y1 = ns[0]
-        y2 = ns[1]
-        for n in range(0, len(y1)):
-            if y1[n] == 0 or y2[n] == 0:
-                r.append(np.nan)
-                r_xerror.append(np.nan)
-                r_yerror.append(np.nan)
-                b.append(bins[n] + (bins[n + 1] - bins[n]) / 2.)
-                continue
-            r.append(y1[n] / y2[n])
-            r_xerror.append((bins[n + 1] - bins[n]) / 2.)  # La anchura del bin
-            r_yerror.append(((y1[n] / y1[n] ** 2) + (y2[n] / y2[
-                n] ** 2)) ** 0.5)  # Suma en cuadratura de errores (error en un histograma es la raiz del n'umero de cuentas)
-            b.append(bins[n] + (bins[n + 1] - bins[n]) / 2.)
-
-        axesr[i].errorbar(x = b, y = r, yerr=r_yerror, xerr=r_xerror, fmt = 'o', color = 'k', ecolor = 'k')
-        axesr[i].set_xlim(left=x_range[i//2][0], right=x_range[i//2][1])
-        axesr[i].set_ylim(bottom=0, top=2)
-        axesr[i].set_xlabel(labels[i] + ' (WD = {:<10.5f})'.format(WD))
+        #WD = wasserstein_distance(real[:,i], fake[:,i])
+        axes[i].set_xlabel(labels[i])
 
     fig.suptitle(title)
     return fig
 
+
 def plot_interpolation(real, fake, limit_up, limit_down, nbins=200, title=''):
-    plt.rcParams["figure.figsize"] = (28, 9)
+    plt.rcParams["figure.figsize"] = (28, 7)
     plt.rcParams["figure.titlesize"], plt.rcParams["axes.titlesize"] = (20, 20)
     plt.rcParams["axes.labelsize"] = 18
 
-    fig, ((ax1, ax2, ax3, ax4), (ax1r, ax2r, ax3r, ax4r)) = plt.subplots(2, 4, sharex=False,
-                                                                         gridspec_kw={'height_ratios': [3, 1]})
+    fig, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4, sharex=False)
     axes = [ax1, ax2, ax3, ax4]
-    axesr = [ax1r, ax2r, ax3r, ax4r]
+    #axesr = [ax1r, ax2r, ax3r, ax4r]
     x_range = [(-40,40), (-1,1)]
     labels = ['$\Delta x$', '$\Delta y$', '$\Delta v_x$', '$\Delta v_y$']
     for i in range(4):
@@ -201,34 +196,34 @@ def plot_interpolation(real, fake, limit_up, limit_down, nbins=200, title=''):
         axes[i].set_yscale('log')
         axes[i].set_xlim(left=x_range[i // 2][0], right=x_range[i // 2][1])
         axes[i].legend()
-        WD = wasserstein_distance(real[:,i], fake[:,i])
+        # WD = wasserstein_distance(real[:,i], fake[:,i])
 
         ## Ratio plot
-        r = []
-        b = []
-        r_xerror = []
-        r_yerror = []
-        y1 = ns[0]
-        y2 = ns[1]
-        for n in range(0, len(y1)):
-            if y1[n] == 0 or y2[n] == 0:
-                r.append(np.nan)
-                r_xerror.append(np.nan)
-                r_yerror.append(np.nan)
-                b.append(bins[n] + (bins[n + 1] - bins[n]) / 2.)
-                continue
-            r.append(y1[n] / y2[n])
-            r_xerror.append((bins[n + 1] - bins[n]) / 2.)  # La anchura del bin
-            r_yerror.append(((y1[n] / y1[n] ** 2) + (y2[n] / y2[
-                n] ** 2)) ** 0.5)  # Suma en cuadratura de errores (error en un histograma es la raiz del n'umero de cuentas)
-            b.append(bins[n] + (bins[n + 1] - bins[n]) / 2.)
+        # r = []
+        # b = []
+        # r_xerror = []
+        # r_yerror = []
+        # y1 = ns[0]
+        # y2 = ns[1]
+        # for n in range(0, len(y1)):
+        #     if y1[n] == 0 or y2[n] == 0:
+        #         r.append(np.nan)
+        #         r_xerror.append(np.nan)
+        #         r_yerror.append(np.nan)
+        #         b.append(bins[n] + (bins[n + 1] - bins[n]) / 2.)
+        #         continue
+        #     r.append(y1[n] / y2[n])
+        #     r_xerror.append((bins[n + 1] - bins[n]) / 2.)  # La anchura del bin
+        #     r_yerror.append(((y1[n] / y1[n] ** 2) + (y2[n] / y2[
+        #         n] ** 2)) ** 0.5)  # Suma en cuadratura de errores (error en un histograma es la raiz del n'umero de cuentas)
+        #     b.append(bins[n] + (bins[n + 1] - bins[n]) / 2.)
+        #
+        # axesr[i].errorbar(x=b, y=r, yerr=r_yerror, xerr=r_xerror, fmt='o', color='k', ecolor='k')
+        axes[i].set_xlim(left=x_range[i // 2][0], right=x_range[i // 2][1])
+        #axes[i].set_ylim(bottom=0, top=2)
+        axes[i].set_xlabel(labels[i])
 
-        axesr[i].errorbar(x=b, y=r, yerr=r_yerror, xerr=r_xerror, fmt='o', color='k', ecolor='k')
-        axesr[i].set_xlim(left=x_range[i // 2][0], right=x_range[i // 2][1])
-        axesr[i].set_ylim(bottom=0, top=2)
-        axesr[i].set_xlabel(labels[i] + ' (WD = {:<10.5f})'.format(WD))
-
-    fig.suptitle(title)
+    #fig.suptitle(title)
     return fig
 
 
@@ -241,74 +236,100 @@ if __name__ == "__main__":
     backend.set_session(sess)
 
     # Read user options
-    parser = OptionParser(usage="%prog --help")
-    parser.add_option("-m", "--model", dest="model", type="string", default=None,
-                      help="Generator model to evaluate")
-    parser.add_option("-l", "--latent", dest="latent_dim", type="int", default=200,
-                      help="Latent dimension")
-    (options, args) = parser.parse_args()
-
-    LATENT_DIM = options.latent_dim
-    modelfile = options.model
+    LATENT_DIM = 16
+    modelfile = '/home/ruben/final_models/WGANGP/generator_model_1000.h5'
 
     datafile = "/home/ruben/fewSamples_evaluation/evaluation_samples.csv"
     print('Loading model...')
     g_model = keras.models.load_model(modelfile)
 
-    print('Loading_data...')
-    dataset, scaler = load(datafile)
-    n = 300000
-    data_reduced = np.zeros((8*n,dataset.shape[1]))
-    for i in range(8):
-        data_reduced[n*i:n*(i+1)] = dataset[dataset[:,8:].argmax(1)==i][0:n]
-    dataset = data_reduced
-    print('Number of evaluation samples = '+str(dataset.shape[0]))
+    LOAD=False
+    if LOAD:
+        print('Loading_data...')
+        dataset, scaler = load(datafile)
+        n = 300000
+        data_reduced = np.zeros((8*n,dataset.shape[1]))
+        for i in range(8):
+            data_reduced[n*i:n*(i+1)] = dataset[dataset[:,8:].argmax(1)==i][0:n]
+        dataset = data_reduced
+        print('Number of evaluation samples = '+str(dataset.shape[0]))
 
-    interpolation_data = pd.read_csv(datafile).to_numpy()
-    interpolation_data = interpolation_data[interpolation_data[:,8]==12][0:n,0:8]
-    interpolation_data = scaler.transform(interpolation_data)
-    interpolation_labels = np.zeros((n,8))
-    interpolation_labels[:,3:5] = 0.5
+        interpolation_data = pd.read_csv(datafile).to_numpy()
+        interpolation_data = interpolation_data[interpolation_data[:,8]==12][0:n,0:8]
+        interpolation_data = scaler.transform(interpolation_data)
+        interpolation_labels = np.zeros((n,8))
+        interpolation_labels[:,3:5] = 0.5
 
-    eval_interpolation = Evaluation(g_model, LATENT_DIM, dataset=np.hstack([interpolation_data, interpolation_labels]),
-                                    scaler=scaler)
-    eval = Evaluation(g_model, LATENT_DIM, dataset=dataset, scaler=scaler)
+        eval_interpolation = Evaluation(g_model, LATENT_DIM, dataset=np.hstack([interpolation_data, interpolation_labels]),
+                                        scaler=scaler)
+        eval = Evaluation(g_model, LATENT_DIM, dataset=dataset, scaler=scaler)
 
-    print('Generating evaluation samples...')
-    start_time = time.time()
-    print('    Start time = '+str(start_time))
-    eval_interpolation.generate_evaluation_samples()
-    eval.generate_evaluation_samples()
-    print('    End time = '+str(time.time()))
-    print("--- Generation time: %s seconds ---" % (time.time() - start_time))
-    real_dataset = eval.real_samples
-    fake_dataset = eval.fake_samples
-    labels = eval.label_radius
-    real_inter = eval_interpolation.real_samples
-    fake_inter = eval_interpolation.fake_samples
+        print('Generating evaluation samples...')
+        start_time = time.time()
+        print('    Start time = '+str(start_time))
+        eval_interpolation.generate_evaluation_samples()
+        eval.generate_evaluation_samples()
+        print('    End time = '+str(time.time()))
+        print("--- Generation time: %s seconds ---" % (time.time() - start_time))
+        real_dataset = eval.real_samples
+        fake_dataset = eval.fake_samples
+        labels = eval.label_radius
+        real_inter = eval_interpolation.real_samples
+        fake_inter = eval_interpolation.fake_samples
+
+    #eval.evaluate(title='Final results')
+    # Calculate means
+    means_real = np.mean(real_inter, axis=0)
+    means_fake = np.mean(fake_inter, axis=0)
+
+    # Calculate skewness
+    skew_real = skew(real_inter)
+    skew_fake = skew(fake_inter)
+
+    # Calculate covariance matrices
+    real_cov = np.cov(real_inter, rowvar=False)
+    fake_cov = np.cov(fake_inter, rowvar=False)
+
+    print("." * 90)
+    print("    Summary of results: Interpolation 12 mm")
+    print("." * 90)
+    print("{:<20} {:<15} {:<15} {:<15} {:<15}".format('Parameter', 'Dx', 'Dy', 'Dv_x', 'Dv_y'))
+    print("." * 90)
+    print("{:<20} {:<15.7e} {:<15.7e} {:<15.7e} {:<15.7e}".format('Mean real', means_real[0], means_real[1],
+                                                                  means_real[2], means_real[3]))
+    print(
+        "{:<20} {:<15.7e} {:<15.7e} {:<15.7e} {:<15.7e}".format('Mean gen', means_fake[0], means_fake[1], means_fake[2],
+                                                                means_fake[3]))
+    print("{:<20} {:<15.7f} {:<15.7f} {:<15.7f} {:<15.7f}".format('Skew real', skew_real[0], skew_real[1], skew_real[2],
+                                                                  skew_real[3]))
+    print("{:<20} {:<15.7f} {:<15.7f} {:<15.7f} {:<15.7f}".format('Skew gen', skew_fake[0], skew_fake[1], skew_fake[2],
+                                                                  skew_fake[3]))
+    print("." * 90)
+    print("    Covariance matrices")
+    print("." * 90)
+    print("Real samples:")
+    print("")
+    print('\n'.join([''.join(['{:<12.7f}'.format(item) for item in row])
+                     for row in real_cov]))
+    print("." * 90)
+    print("Fake samples:")
+    print("")
+    print('\n'.join([''.join(['{:<12.7f}'.format(item) for item in row])
+                     for row in fake_cov]))
 
     print('Plotting results...')
-    output = 'test_ratio'
-    out = PdfPages('evaluation_' + output + '.pdf')
+    output = 'final_cond'
+    out = PdfPages('/home/ruben/evaluation_' + output + '.pdf')
     num_classes = labels.shape[1]
-    radius = [4,6,8,10,14,16,18,20]
-    for j in range(num_classes):
-        out.savefig(plot_difference(real_dataset[labels.argmax(1)==j],
-                                    fake_dataset[labels.argmax(1)==j],
-                                    nbins=100,
-                                    title='r = '+str(radius[j])+'mm'))
+    out.savefig(plot_difference(real_dataset,
+                                fake_dataset,
+                                nbins=100,
+                                title=''))
     out.savefig(plot_interpolation(real_inter,
                                    fake_inter,
-                                   limit_down=fake_dataset[labels.argmax(1)==3],
-                                   limit_up=fake_dataset[labels.argmax(1)==4],
+                                   limit_down=fake_dataset[labels.argmax(1) == 3],
+                                   limit_up=fake_dataset[labels.argmax(1) == 4],
                                    nbins=100,
                                    title='r = 12mm'))
-
-    #out.savefig(plot_correlation_2Dhist(real_dataset_20[:, 0], real_dataset_20[:, 2],
-    #                                    fake_dataset_20[:, 0], fake_dataset_20[:, 2],
-    #                                    [[-15, 15], [-1, 1]], ['$\Delta x$ (6mm)', '$\Delta v_x$ (6mm)']))
-    #out.savefig(plot_correlation_2Dhist(real_dataset_04[:, 1], real_dataset_04[:, 3],
-    #                                    fake_dataset_04[:, 1], fake_dataset_04[:, 3],
-    #                                    [[-15, 15], [-1, 1]], ['$\Delta y$ (18mm)', '$\Delta v_y$ (18mm)']))
     out.close()
     print('Evaluation done!')

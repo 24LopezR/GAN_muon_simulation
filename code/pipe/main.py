@@ -16,6 +16,8 @@ from utils.generating import generate_evaluation_samples
 from utils.training import train
 from utils.plotting import print_plots
 
+import time
+
 if __name__ == "__main__":
 	os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
@@ -78,6 +80,8 @@ if __name__ == "__main__":
 	# _________________________________________________________________________________________
 
 	# load and scale data
+	print('Loading data...')
+	full_start_time = time.time()
 	scaler = StandardScaler()
 	data = load(inputfile)
 	dataset, _, scaler = scale(data, scaler)
@@ -100,15 +104,24 @@ if __name__ == "__main__":
 	# _________________________________________________________________________________________
 	
 	# Evaluate the model
+	print('Generating evaluation samples...')
 	if g_model is not None:
-		fake = generate_evaluation_samples(g_model, dataset, latent_dim, scaler)
-		evaluate(data[:,4:], fake)
+		dataset_cut = [d[:10000] for d in dataset]
+		for _ in range(1):
+			# Measure generation time
+			start_time = time.time()
+			fake = generate_evaluation_samples(g_model, dataset_cut, latent_dim, scaler)
+			time_exec = time.time() - start_time
+			print("--- %s seconds ---" % (time_exec))
+		#evaluate(data[:,4:], fake)
+		full_time_exec = time.time() - full_start_time
+		print("--- %s seconds (full) ---" % (full_time_exec))
 	else:
 		fake = None
 		print("."*90)
 		print('Warning: There is no generator model to evaluate')
 		print("."*90)
-	print_plots(data, fake, output)
+	#print_plots(data, fake, output)
 	# _________________________________________________________________________________________
 	
 	#Generate a few

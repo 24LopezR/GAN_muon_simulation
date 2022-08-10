@@ -42,6 +42,6 @@ def load(in_file):
     return data
 
 if __name__== "__main__":
-    input_dir = '/home/ruben/fewSamples/'
+    input_dir = '/home/ruben/fewSamples_evaluation/'
     data = load(input_dir)
-    pd.DataFrame(data).to_csv("/home/ruben/fewSamples/training_samples.csv", header=False, index=False)
+    pd.DataFrame(data).to_csv("/home/ruben/fewSamples_evaluation/evaluation_samples.csv", header=False, index=False)

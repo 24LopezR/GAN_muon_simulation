@@ -16,12 +16,12 @@ def get_mean_difference(real, fake):
 def get_cov_matrices(real, fake):
 	real_cov = np.cov(real, rowvar=False)
 	fake_cov = np.cov(fake, rowvar=False)
-	return real_cov, fake_cov, real_cov-fake_cov
+	return real_cov, fake_cov
 
 def get_skewness(real, fake):
 	skew_real = skew(real)
 	skew_fake = skew(fake)
-	return skew_real, skew_fake, skew_real-skew_fake
+	return skew_real, skew_fake
 
 def ks_test(real, fake):
 	p_values = [kstest(real[:,0], fake[:,0])[1], 
@@ -76,8 +76,42 @@ def print_results(pull, cov, skew, p_values):
 	      for row in cov_fake]))
 	      
 def evaluate(real, fake):
-	pull = get_mean_difference(real, fake)
-	cov = get_cov_matrices(real,fake)
-	skew = get_skewness(real, fake)
-	p_values = ks_test(real, fake)
-	print_results(pull, cov, skew, p_values)
+	#pull = get_mean_difference(real, fake)
+	#cov = get_cov_matrices(real,fake)
+	#skew = get_skewness(real, fake)
+	#p_values = ks_test(real, fake)
+	#print_results(pull, cov, skew, p_values)
+
+	# Calculate means
+	means_real = np.mean(real, axis=0)
+	means_fake = np.mean(fake, axis=0)
+
+	# Calculate skewness
+	skew_real, skew_fake = get_skewness(real, fake)
+
+	# Calculate covariance matrices
+	cov_real, cov_fake = get_cov_matrices(real, fake)
+
+	print("." * 90)
+	print("    Summary of results")
+	print("." * 90)
+	print("{:<20} {:<15} {:<15} {:<15} {:<15}".format('Parameter', 'Dx', 'Dy', 'Dv_x', 'Dv_y'))
+	print("." * 90)
+	print("{:<20} {:<15.7e} {:<15.7e} {:<15.7e} {:<15.7f}".format('Mean real',means_real[0],means_real[1], means_real[2], means_real[3]))
+	print("{:<20} {:<15.7e} {:<15.7e} {:<15.7e} {:<15.7f}".format('Mean gen', means_fake[0],means_fake[1], means_fake[2], means_fake[3]))
+	print("{:<20} {:<15.7f} {:<15.7f} {:<15.7f} {:<15.7f}".format('Skew real', skew_real[0], skew_real[1], skew_real[2], skew_real[3]))
+	print("{:<20} {:<15.7f} {:<15.7f} {:<15.7f} {:<15.7f}".format('Skew gen', skew_fake[0], skew_fake[1], skew_fake[2], skew_fake[3]))
+	print("." * 90)
+	print("    Covariance matrices")
+	print("." * 90)
+	print("Real samples:")
+	print("")
+	print('\n'.join([''.join(['{:<12.7f}'.format(item) for item in row])
+					 for row in cov_real]))
+	print("." * 90)
+	print("Fake samples:")
+	print("")
+	print('\n'.join([''.join(['{:<12.7f}'.format(item) for item in row])
+					 for row in cov_fake]))
+
+
