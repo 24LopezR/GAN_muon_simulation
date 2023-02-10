@@ -11,6 +11,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 from optparse import OptionParser
 from scipy.stats import skew, kstest, wasserstein_distance
 import time
+from Evaluation import Evaluation
 
 
 def load(inputfile):
@@ -40,142 +41,98 @@ def load(inputfile):
     return np.concatenate([variables, labels], axis=1), scaler
 
 
-class Evaluation:
-
-    def __init__(self, generator_model, latent_dim, dataset, scaler):
-        self.generator_model = generator_model
-        self.latent_dim = latent_dim
-        self.input_data = dataset[:,0:4]
-        self.real_samples = dataset[:,4:8]
-        self.label_radius = dataset[:,8:]
-        self.scaler = scaler
-
-    def generate_evaluation_samples(self):
-        n_samples = self.input_data.shape[0]
-        z_noise = np.random.normal(size=(n_samples, self.latent_dim))
-
-        fake_samples = self.generator_model.predict([z_noise, np.hstack([self.input_data, self.label_radius])])
-
-        self.fake_samples = self.scaler.inverse_transform(np.hstack([self.input_data, fake_samples]))[:, 4:]
-        self.real_samples = self.scaler.inverse_transform(np.hstack([self.input_data, self.real_samples]))[:, 4:]
-
-    def get_mean_difference(self):
-        means_real = np.mean(self.real_samples, axis=0)
-        means_fake = np.mean(self.fake_samples, axis=0)
-        err_real = np.std(self.real_samples, axis=0, ddof=1) / np.sqrt(self.real_samples.shape[0])
-        err_fake = np.std(self.fake_samples, axis=0, ddof=1) / np.sqrt(self.fake_samples.shape[0])
-        pull = (means_real - means_fake) / np.sqrt(err_real ** 2 + err_fake ** 2)
-        return pull
-
-    def get_cov_matrices(self):
-        real_cov = np.cov(self.real_samples, rowvar=False)
-        fake_cov = np.cov(self.fake_samples, rowvar=False)
-        return real_cov, fake_cov, real_cov - fake_cov
-
-    def get_skewness(self):
-        skew_real = skew(self.real_samples)
-        skew_fake = skew(self.fake_samples)
-        return skew_real, skew_fake, skew_real - skew_fake
-
-    def ks_test(self):
-        p_values = []
-        x_range = [(-40, 40), (-1, 1)]
-        nreal, bins, _ = plt.hist(self.real_samples[:, 0][self.label_radius.argmax(1) == 0],
-                               bins=100,
-                               range=x_range[j // 2])
-        print(nreal)
-        # for i in range(8):
-        #     row = []
-        #     for j in range(4):
-        #         nreal, _, _ = plt.hist(self.real_samples[:,j][self.label_radius.argmax(1) == i],
-        #                                bins=100,
-        #                                range=x_range[j//2])
-        #         nfake, _, _ = plt.hist(self.fake_samples[:,j][self.label_radius.argmax(1) == i],
-        #                                bins=100,
-        #                                range=x_range[j//2])
-        #         print(kstest(nreal, nfake)[1])
-        #     p_values.append(row)
-        return p_values
-
-    def evaluate(self, title):
-        pull = self.get_mean_difference()
-        cov = self.get_cov_matrices()
-        cov_real, cov_fake, _ = cov
-        skewness = self.get_skewness()
-        skew_real, skew_fake, _ = skewness
-        p_values = self.ks_test()
-
-        print("." * 100)
-        print("    Summary of results: "+title)
-        print("." * 100)
-        print("{:<20} {:<15} {:<15} {:<15} {:<15}".format('Parameter', 'Dx', 'Dy', 'Dv_x', 'Dv_y'))
-        print("." * 100)
-        print("{:<20} {:<15.3f} {:<15.3f} {:<15.3f} {:<15.3f}".format('Pull', pull[0], pull[1], pull[2], pull[3]))
-        print(" " * 100)
-        print("{:<20} {:<15.3f} {:<15.3f} {:<15.3f} {:<15.3f}".format('Skewness_real', skew_real[0], skew_real[1],
-                                                                      skew_real[2], skew_real[3]))
-        print("{:<20} {:<15.3f} {:<15.3f} {:<15.3f} {:<15.3f}".format('Skewness_fake', skew_fake[0], skew_fake[1],
-                                                                      skew_fake[2], skew_fake[3], ))
-        print(" " * 100)
-        #print("{:<20} {:<15.3f} {:<15.3f} {:<15.3f} {:<15.3f}".format('KS-test (p-value)', p_values[0], p_values[1],
-        #                                                              p_values[2], p_values[3]))
-        print("." * 100)
-        print("    Covariance matrices")
-        print("." * 100)
-        print("Real samples:")
-        print("")
-        print('\n'.join([''.join(['{:<12.7f}'.format(item) for item in row])
-                         for row in cov_real]))
-        print("." * 100)
-        print("Fake samples:")
-        print("")
-        print('\n'.join([''.join(['{:<12.7f}'.format(item) for item in row])
-                         for row in cov_fake]))
-
-
 def plot_difference(real, fake, nbins=200, title=''):
-    plt.rcParams["figure.figsize"] = (28, 7)
+    plt.rcParams["figure.figsize"] = (28, 10)
     plt.rcParams["figure.titlesize"], plt.rcParams["axes.titlesize"] = (20, 20)
     plt.rcParams["axes.labelsize"] = 18
 
-    fig, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4, sharex=False)
+    fig, ((ax1, ax2, ax3, ax4), (ax1r, ax2r, ax3r, ax4r)) = plt.subplots(2, 4, sharex=False,
+                                                                         gridspec_kw={'height_ratios': [3, 1]})
     axes = [ax1, ax2, ax3, ax4]
+    axesr = [ax1r, ax2r, ax3r, ax4r]
     x_range = [(-40,40), (-1,1)]
     labels = ['$\Delta x$', '$\Delta y$', '$\Delta v_x$', '$\Delta v_y$']
     for i in range(4):
-        axes[i].hist([real[:300000,i], real[-300000:, i]],
-                                         bins=nbins,
-                                         density=False,
-                                         range=x_range[i//2],
-                                         histtype='step',
-                                         color=['blue','red'],
-                                         label=['data 4 mm','data 20 mm'])
-        axes[i].hist([fake[:300000,i], fake[-300000:, i]],
+        ns_1, bins_1, _ = axes[i].hist([real[:300000,i], real[-300000:,i]],
+                                        bins=nbins,
+                                        density=False,
+                                        range=x_range[i//2],
+                                        histtype='step',
+                                        color=['blue','red'],
+                                        linestyle = 'solid',
+                                        label=['data 4 mm','data 20 mm'])
+        ns_2, bins_2, _ = axes[i].hist([fake[:300000, i], fake[-300000:, i]],
                      bins=nbins,
                      density=False,
                      range=x_range[i//2],
                      histtype='step',
-                     color=['blue', 'red'],
+                     color=['blue','red'],
                      linestyle='dashed',
                      label=['generated 4 mm', 'generated 20 mm'])
         axes[i].set_yscale('log')
         axes[i].set_xlim(left=x_range[i // 2][0], right=x_range[i // 2][1])
         axes[i].legend()
-        #WD = wasserstein_distance(real[:,i], fake[:,i])
         axes[i].set_xlabel(labels[i])
+
+        ## Ratio plot 1
+        r = []
+        b = []
+        r_xerror = []
+        r_yerror = []
+        y1 = ns_1[0]
+        y2 = ns_2[0]
+        for n in range(0, len(y1)):
+            if y1[n] == 0 or y2[n] == 0:
+                r.append(np.nan)
+                r_xerror.append(np.nan)
+                r_yerror.append(np.nan)
+                b.append(bins_1[n] + (bins_1[n + 1] - bins_1[n]) / 2.)
+                continue
+            r.append(y1[n] / y2[n])
+            r_xerror.append((bins_1[n + 1] - bins_1[n]) / 2.)  # La anchura del bin
+            r_yerror.append(((y1[n] / y1[n] ** 2) + (y2[n] / y2[
+                n] ** 2)) ** 0.5)  # Suma en cuadratura de errores (error en un histograma es la raiz del n'umero de cuentas)
+            b.append(bins_1[n] + (bins_1[n + 1] - bins_1[n]) / 2.)
+
+        axesr[i].errorbar(x=b, y=r, yerr=r_yerror, xerr=r_xerror, fmt='o', color='blue', ecolor='blue')
+
+        ## Ratio plot 2
+        r = []
+        b = []
+        r_xerror = []
+        r_yerror = []
+        y1 = ns_1[1]
+        y2 = ns_2[1]
+        for n in range(0, len(y1)):
+            if y1[n] == 0 or y2[n] == 0:
+                r.append(np.nan)
+                r_xerror.append(np.nan)
+                r_yerror.append(np.nan)
+                b.append(bins_2[n] + (bins_2[n + 1] - bins_2[n]) / 2.)
+                continue
+            r.append(y1[n] / y2[n])
+            r_xerror.append((bins_2[n + 1] - bins_2[n]) / 2.)  # La anchura del bin
+            r_yerror.append(((y1[n] / y1[n] ** 2) + (y2[n] / y2[
+                n] ** 2)) ** 0.5)  # Suma en cuadratura de errores (error en un histograma es la raiz del n'umero de cuentas)
+            b.append(bins_2[n] + (bins_2[n + 1] - bins_2[n]) / 2.)
+        axesr[i].axhline(y=1, linestyle='dashed', color='black')
+        axesr[i].errorbar(x=b, y=r, yerr=r_yerror, xerr=r_xerror, fmt='o', color='red', ecolor='red')
+        axesr[i].set_xlim(left=x_range[i // 2][0], right=x_range[i // 2][1])
+        axesr[i].set_ylim(bottom=0, top=2)
+        axesr[i].set_xlabel(labels[i])
 
     fig.suptitle(title)
     return fig
 
 
 def plot_interpolation(real, fake, limit_up, limit_down, nbins=200, title=''):
-    plt.rcParams["figure.figsize"] = (28, 7)
+    plt.rcParams["figure.figsize"] = (28, 10)
     plt.rcParams["figure.titlesize"], plt.rcParams["axes.titlesize"] = (20, 20)
     plt.rcParams["axes.labelsize"] = 18
 
-    fig, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4, sharex=False)
+    fig, ((ax1, ax2, ax3, ax4), (ax1r, ax2r, ax3r, ax4r)) = plt.subplots(2, 4, sharex=False, gridspec_kw={'height_ratios': [3, 1]})
     axes = [ax1, ax2, ax3, ax4]
-    #axesr = [ax1r, ax2r, ax3r, ax4r]
+    axesr = [ax1r, ax2r, ax3r, ax4r]
     x_range = [(-40,40), (-1,1)]
     labels = ['$\Delta x$', '$\Delta y$', '$\Delta v_x$', '$\Delta v_y$']
     for i in range(4):
@@ -196,34 +153,127 @@ def plot_interpolation(real, fake, limit_up, limit_down, nbins=200, title=''):
         axes[i].set_yscale('log')
         axes[i].set_xlim(left=x_range[i // 2][0], right=x_range[i // 2][1])
         axes[i].legend()
-        # WD = wasserstein_distance(real[:,i], fake[:,i])
 
         ## Ratio plot
-        # r = []
-        # b = []
-        # r_xerror = []
-        # r_yerror = []
-        # y1 = ns[0]
-        # y2 = ns[1]
-        # for n in range(0, len(y1)):
-        #     if y1[n] == 0 or y2[n] == 0:
-        #         r.append(np.nan)
-        #         r_xerror.append(np.nan)
-        #         r_yerror.append(np.nan)
-        #         b.append(bins[n] + (bins[n + 1] - bins[n]) / 2.)
-        #         continue
-        #     r.append(y1[n] / y2[n])
-        #     r_xerror.append((bins[n + 1] - bins[n]) / 2.)  # La anchura del bin
-        #     r_yerror.append(((y1[n] / y1[n] ** 2) + (y2[n] / y2[
-        #         n] ** 2)) ** 0.5)  # Suma en cuadratura de errores (error en un histograma es la raiz del n'umero de cuentas)
-        #     b.append(bins[n] + (bins[n + 1] - bins[n]) / 2.)
-        #
-        # axesr[i].errorbar(x=b, y=r, yerr=r_yerror, xerr=r_xerror, fmt='o', color='k', ecolor='k')
-        axes[i].set_xlim(left=x_range[i // 2][0], right=x_range[i // 2][1])
-        #axes[i].set_ylim(bottom=0, top=2)
-        axes[i].set_xlabel(labels[i])
+        r = []
+        b = []
+        r_xerror = []
+        r_yerror = []
+        y1 = ns[0]
+        y2 = ns[1]
+        for n in range(0, len(y1)):
+            if y1[n] == 0 or y2[n] == 0:
+                r.append(np.nan)
+                r_xerror.append(np.nan)
+                r_yerror.append(np.nan)
+                b.append(bins[n] + (bins[n + 1] - bins[n]) / 2.)
+                continue
+            r.append(y1[n] / y2[n])
+            r_xerror.append((bins[n + 1] - bins[n]) / 2.)  # La anchura del bin
+            r_yerror.append(((y1[n] / y1[n] ** 2) + (y2[n] / y2[
+                n] ** 2)) ** 0.5)  # Suma en cuadratura de errores (error en un histograma es la raiz del n'umero de cuentas)
+            b.append(bins[n] + (bins[n + 1] - bins[n]) / 2.)
+        axesr[i].axhline(y=1, linestyle='dashed', color='black')
+        axesr[i].errorbar(x=b, y=r, yerr=r_yerror, xerr=r_xerror, fmt='o', color='k', ecolor='k')
+        axesr[i].set_xlim(left=x_range[i // 2][0], right=x_range[i // 2][1])
+        axesr[i].set_ylim(bottom=0, top=2)
+        axesr[i].set_xlabel(labels[i])
+    return fig
 
-    #fig.suptitle(title)
+
+def compute_WD(real, fake):
+    WD_matrix = np.zeros([4,8,8])
+    for k in range(4):
+        for i in range(8):
+            for j in range(8):
+                if i == j:
+                    WD_matrix[k, i, j] = wasserstein_distance(real[300000 * i:300000 * (i + 1), k],
+                                                              fake[300000 * j:300000 * (j + 1), k])
+                else:
+                    WD_matrix[k, i, j] = wasserstein_distance(real[300000*i:300000*(i+1),k],
+                                                              real[300000*j:300000*(j+1),k])
+
+    return WD_matrix
+
+
+def plot_WD(WD_matrix):
+    plt.rcParams["figure.figsize"] = (28, 7)
+    plt.rcParams["figure.titlesize"], plt.rcParams["axes.titlesize"] = (20, 20)
+    plt.rcParams["axes.labelsize"] = 18
+    plt.xlabel('xlabel', fontsize=18)
+    plt.ylabel('ylabel', fontsize=18)
+
+    fig, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4, sharex=False, gridspec_kw={'width_ratios': [1,1,1,1]})
+    fig.suptitle('Wasserstein distance between distributions', fontsize=20)
+    axes = [ax1, ax2, ax3, ax4]
+    labels = ['$\Delta x$', '$\Delta y$', '$\Delta v_x$', '$\Delta v_y$']
+    for k in range(4):
+        a = axes[k].matshow(WD_matrix[k]/np.max(WD_matrix[k]), cmap=plt.cm.Blues)
+        for i in range(8):
+            for j in range(8):
+                if i == j:
+                    c = np.around(WD_matrix[k, i, j]/np.max(WD_matrix[k]), 3)
+                    axes[k].text(i, j, str(c), va='center', ha='center')
+        axes[k].set_xlabel(labels[k])
+        axes[k].set_xticklabels([2,4,6,8,10,14,16,18,20])
+        axes[k].set_yticklabels([2,4,6,8,10,14,16,18,20])
+        axes[k].tick_params(axis='both', which='major', labelsize=12)
+    fig.colorbar(a, ax=axes, location = 'bottom', fraction = 0.05)
+
+    return fig
+
+
+def compute_covariances(real, fake):
+    cov_dxdvx = np.zeros([8,9])
+    cov_dydvy = np.zeros([8,9])
+    for i in range(8):
+        for j in range(8):
+            cov_dxdvx[i, -1] = np.cov([fake[300000 * i:300000 * (i + 1), 0],
+                                      fake[300000 * i:300000 * (i + 1), 2]])[0,1]
+            cov_dydvy[i, -1] = np.cov([fake[300000 * i:300000 * (i + 1), 0],
+                                      fake[300000 * i:300000 * (i + 1), 2]])[0,1]
+
+            cov_dxdvx[i, j] = np.cov([real[300000 * i:300000 * (i + 1), 0],
+                                      real[300000 * j:300000 * (j + 1), 2]])[0,1]
+            cov_dydvy[i, j] = np.cov([real[300000 * i:300000 * (i + 1), 0],
+                                      real[300000 * j:300000 * (j + 1), 2]])[0,1]
+
+    return cov_dxdvx, cov_dydvy
+
+
+def plot_covs(cov_dxdvx, cov_dydvy):
+    plt.rcParams["figure.figsize"] = (14, 7)
+    plt.rcParams["figure.titlesize"], plt.rcParams["axes.titlesize"] = (20, 20)
+    plt.rcParams["axes.labelsize"] = 18
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, sharex=False, gridspec_kw={'width_ratios': [1,1]})
+    fig.suptitle('Correlations between distributions', fontsize=20)
+    axes = [ax1, ax2]
+    labels = ['$|\Delta x - \Delta v_x|$ (normalized)', '$|\Delta y - \Delta v_y|$ (normalized)']
+    cov_dxdvx = abs(cov_dxdvx) / np.max(abs(cov_dxdvx))
+    cov_dydvy = abs(cov_dydvy) / np.max(abs(cov_dydvy))
+    ax1.matshow(cov_dxdvx[:,:8], cmap=plt.cm.Greens)
+    a = ax2.matshow(cov_dydvy[:,:8], cmap=plt.cm.Greens)
+    '''
+    for i in range(8):
+        for j in range(8):
+            if i == j:
+                c = np.around(cov_dxdvx[i, -1], 3)
+                ax1.text(i, j, str(c), va='center', ha='center')
+                c = np.around(cov_dydvy[i, -1], 3)
+                ax2.text(i, j, str(c), va='center', ha='center')
+            else:
+                c = np.around(cov_dxdvx[i, j], 3)
+                ax1.text(i, j, str(c), va='center', ha='center')
+                c = np.around(cov_dydvy[i, j], 3)
+                ax2.text(i, j, str(c), va='center', ha='center')
+    '''
+    for k in range(2):
+        axes[k].set_xlabel(labels[k])
+        axes[k].set_xticklabels([2,4,6,8,10,14,16,18,20])
+        axes[k].set_yticklabels([2,4,6,8,10,14,16,18,20])
+    fig.colorbar(a, ax=axes, location = 'bottom', fraction = 0.05)
+
     return fig
 
 
@@ -243,7 +293,7 @@ if __name__ == "__main__":
     print('Loading model...')
     g_model = keras.models.load_model(modelfile)
 
-    LOAD=False
+    LOAD=1
     if LOAD:
         print('Loading_data...')
         dataset, scaler = load(datafile)
@@ -277,7 +327,6 @@ if __name__ == "__main__":
         real_inter = eval_interpolation.real_samples
         fake_inter = eval_interpolation.fake_samples
 
-    #eval.evaluate(title='Final results')
     # Calculate means
     means_real = np.mean(real_inter, axis=0)
     means_fake = np.mean(fake_inter, axis=0)
@@ -317,19 +366,24 @@ if __name__ == "__main__":
     print('\n'.join([''.join(['{:<12.7f}'.format(item) for item in row])
                      for row in fake_cov]))
 
+    if LOAD: WD_matrix = compute_WD(real_dataset, fake_dataset)
+    if LOAD: cov_dxdvx, cov_dydvy = compute_covariances(real_dataset, fake_dataset)
+
     print('Plotting results...')
-    output = 'final_cond'
-    out = PdfPages('/home/ruben/evaluation_' + output + '.pdf')
+    output = 'paper'
+    out = PdfPages('/home/ruben/GAN_muon_simulation/output/evaluation_' + output + '.pdf')
     num_classes = labels.shape[1]
     out.savefig(plot_difference(real_dataset,
-                                fake_dataset,
-                                nbins=100,
-                                title=''))
+                               fake_dataset,
+                               nbins=100,
+                               title=''))
     out.savefig(plot_interpolation(real_inter,
-                                   fake_inter,
-                                   limit_down=fake_dataset[labels.argmax(1) == 3],
-                                   limit_up=fake_dataset[labels.argmax(1) == 4],
-                                   nbins=100,
-                                   title='r = 12mm'))
+                                  fake_inter,
+                                  limit_down=fake_dataset[labels.argmax(1) == 3],
+                                  limit_up=fake_dataset[labels.argmax(1) == 4],
+                                  nbins=100,
+                                  title='r = 12mm'))
+    out.savefig(plot_WD(WD_matrix))
+    out.savefig(plot_covs(cov_dxdvx, cov_dydvy))
     out.close()
     print('Evaluation done!')

@@ -41,7 +41,7 @@ if __name__ == "__main__":
 	# Name of output file
     output = options.output
 	# number of epochs
-    epochs = options.epochs
+    epochs = options.EPOCHS
 	# size of the latent space
     latent_dim = options.latent
 	# batch size
@@ -65,7 +65,7 @@ if __name__ == "__main__":
     print(' Training mode: {:<50}'.format(
 	    'False' if options.train is False else 'True'))
     if options.train is not False:
-        print('     Training epochs: {:<50}'.format(str(options.epochs)))
+        print('     Training epochs: {:<50}'.format(str(options.EPOCHS)))
         print('     Dimension of latent space: {:<50}'.format(str(options.latent)))
         print('     Batch size: {:<50}'.format(str(options.batch)))
         print('     k hyperparameter: {:<50}'.format(str(options.k_hyp)))
