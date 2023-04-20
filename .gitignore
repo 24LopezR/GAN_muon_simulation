@@ -8,3 +8,4 @@ code/simulator_TGAN_one_wire/models/layers/__pycache__/
 /.venv/
 /.idea/
 /data/pipe_training_samples.csv
+Pytorch/WGAN-GP/__pycache__/
