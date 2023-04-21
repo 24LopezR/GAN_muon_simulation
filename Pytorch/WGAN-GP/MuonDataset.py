@@ -4,16 +4,20 @@ import torch
 from torch.utils.data import Dataset
 import ROOT as r
 from tqdm import tqdm
+import csv
 
 ################### CONSTANTS #########################
-DATAFILESPATH = '/home/ruben/Samples/training'
+DATAFILESPATH = '/home/ruben/Samples/training/csv/'
 ''' datafiles name: PipeTest_19p8_20_fullformat_19p8_20_seed20.root '''
 
 #######################################################
 
 
 class MuonDataset(Dataset):
-    def __init__(self):
+    def __init__(self, datafiles_path, transform=None, target_transform=None):
+        self.datafiles_path = datafiles_path
+        self.transform = transform
+        self.target_transform = target_transform
 
         # Dictionary with radius
         self.radius = {
@@ -29,14 +33,36 @@ class MuonDataset(Dataset):
             "19p8_20": 2
         }
 
-    def load(self, datafiles_path):
+        # we need to order the csv files that form the dataset somehow (alphabetic order)
+        self.list_of_files = sorted([self.datafiles_path+_file for _file in os.listdir(self.datafiles_path)])
+        self.samples_index = {}
+        for _file in self.list_of_files:
+            with open(_file) as f:
+                self.samples_index[_file] = sum(1 for line in f)
+
+    def __len__(self):
+        length = 0
+        for _file in os.listdir(self.datafiles_path):
+            if '.csv' not in _file: continue
+            with open(self.datafiles_path+_file) as f:
+                l_temp = sum(1 for line in f)
+            length += l_temp
+        return length
+
+    def __getitem__(self, idx):
+        return 0
+
+    def writeCSVfiles(self, datafiles_path):
         """
-            Reads the muon data files and returns the dataset as a numpy
-            array with the following structure:
+            Reads the muon data stored in .root files and prints the dataset as a csv
+            file with the following format:
                 - Size: [N, 9]
             [ x1_0, y1_0, vx1_0, vy1_0, Dx_0, Dy_0, Dvx_0, Dvy_0, r_0
               ...   ...   ...    ...    ...   ...   ...    ...    ...
               x1_N, y1_N, vx1_N, vy1_N, Dx_N, Dy_N, Dvx_N, Dvy_N, r_N ]
+            ------------------------------------------------------------------------------
+                                     TO BE USED ONLY ONCE !!!!!
+            -----------------------------------------------------------------------------
         """
         # loop over files
         for name in os.listdir(datafiles_path):
@@ -62,7 +88,12 @@ class MuonDataset(Dataset):
             np.savetxt("/home/ruben/Samples/training/{0}.csv".format(name[:-5]), data, delimiter=",")
             print('>> DONE: {0}'.format(name))
         print('Data successfully loaded')
-        
+
+    def getFileIndexFromIdx(self, idx):
+        return idx
 
 if __name__ == '__main__':
-    MuonDataset().load(DATAFILESPATH)
+    data = MuonDataset(DATAFILESPATH)
+    print(data.__len__())
+    print(data.list_of_files)
+    print(data.samples_index)
