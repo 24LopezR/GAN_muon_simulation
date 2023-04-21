@@ -59,6 +59,4 @@ def get_lsun_dataloader(path_to_data='../lsun', dataset='bedroom_train',
     # Create dataloader
     return DataLoader(lsun_dset, batch_size=batch_size, shuffle=True)
 
-def get_muon_dataloader(path_to_data='', batch_size=256):
-
-    
+#def get_muon_dataloader(path_to_data='', batch_size=256):    
