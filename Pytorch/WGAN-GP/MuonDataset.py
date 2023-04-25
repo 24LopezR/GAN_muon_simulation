@@ -35,10 +35,12 @@ class MuonDataset(Dataset):
 
         # we need to order the csv files that form the dataset somehow (alphabetic order)
         self.list_of_files = sorted([self.datafiles_path+_file for _file in os.listdir(self.datafiles_path)])
-        self.samples_index = {}
+        num_samples = []
         for _file in self.list_of_files:
             with open(_file) as f:
-                self.samples_index[_file] = sum(1 for line in f)
+                num_samples.append(sum(1 for line in f))
+        self.num_samples = np.asarray(num_samples, dtype=int)
+        self.cumulative_samples = np.cumsum(self.num_samples, dtype=int)
 
     def __len__(self):
         length = 0
@@ -90,10 +92,16 @@ class MuonDataset(Dataset):
         print('Data successfully loaded')
 
     def getFileIndexFromIdx(self, idx):
-        return idx
+        _file_idx = np.searchsorted(self.cumulative_samples, idx)-1
+        _sample_idx = np.mod(idx, self.cumulative_samples[_file_idx])
+        print('>> File index:   {0}'.format(_file_idx))
+        print('>> Sample index: {0}'.format(_sample_idx))
+        return _file_idx, _sample_idx
 
 if __name__ == '__main__':
     data = MuonDataset(DATAFILESPATH)
     print(data.__len__())
-    print(data.list_of_files)
-    print(data.samples_index)
+    #print(data.list_of_files)
+    print(data.num_samples)
+    print(data.cumulative_samples)
+    data.getFileIndexFromIdx(1000000)
