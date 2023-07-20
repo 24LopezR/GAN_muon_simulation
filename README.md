@@ -4,6 +4,6 @@ Repository for code, data and results
 
 Structure:
 
-- '''code/''': code I developed for TFM
-- '''data/''': some muon datafiles
-- '''Pytorch/''': Pytorch implementation of WGAN-GP (from https://github.com/EmilienDupont/wgan-gp)
+- ´´´Training/´´´: code I developed for TFM.
+- ´´´Paper/´´´: Stuff related to the paper: code, datafiles and trained model.
+- ´´´Pytorch/´´´: Pytorch implementation of WGAN-GP (from https://github.com/EmilienDupont/wgan-gp).
