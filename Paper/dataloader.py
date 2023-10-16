@@ -6,13 +6,15 @@ import pandas as pd
 
 ###########################################################################################################
 ## This script is intended to be run only once.
-##  Creates a .csv file from a list of .root files in a given dir (INPUT_DIR)
+##  Creates a .csv file from a list of .root files in a given dir
 ##  Format of .csv:
 ##    x1 y1 vx1 vy1 delta(x) delta(y) delta(vx) delta(vy) radius
 ###########################################################################################################
 
-INPUT_DIR   = '/home/ruben/fewSamples/'
-OUTPUT_FILE = '/home/ruben/fewSamples/training_samples.csv' 
+ABSPATH = '/'.join(__file__.split('/')[:-2])
+print('Project absolute path: ', ABSPATH)
+
+EVALUATION_SAMPLES_PATH = '/home/ruben/Documents/evaluationSamples'
 
 # Dictionary with radius
 radius = {
@@ -37,7 +39,7 @@ def load(in_dir):
         for key in radius:
             if key in name:
                 r_pipe = radius[key]
-        f = r.TFile(input_dir + '/' + name)
+        f = r.TFile(in_dir + '/' + name)
         for ev in tqdm(f.globalReco, total=f.globalReco.GetEntries(), desc='Loading data: ' + name):
             if ev.type1 != 3 or ev.type2 != 3:
                 continue
@@ -53,5 +55,6 @@ def load(in_dir):
     return data
 
 if __name__== "__main__":
-    data = load(INPUT_DIR)
+    OUTPUT_FILE = EVALUATION_SAMPLES_PATH + '/evaluationSamples_Oct16.csv'
+    data = load(EVALUATION_SAMPLES_PATH)
     pd.DataFrame(data).to_csv(OUTPUT_FILE, header=False, index=False)

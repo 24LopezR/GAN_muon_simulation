@@ -18,14 +18,14 @@ This class implements all the functions to evaluate a certain generator model
 class Evaluation:
 
     def __init__(self, generator_model, latent_dim, dataset, scaler):
-    """
-    Arguments:
-        - generator_model: path to .h5 file containing the model to evaluate
-        - latent_dim     : dimension of latent space
-        - dataset        : numpy array containing the evaluation data
-                           format -> [ input_data, real_data_to_predict, label radius ]
-        - scaler         : fitted StandardScaler object needed to normalize the evaluation dataset
-    """
+        """
+        Arguments:
+            - generator_model: path to .h5 file containing the model to evaluate
+            - latent_dim     : dimension of latent space
+            - dataset        : numpy array containing the evaluation data
+                               format -> [ input_data, real_data_to_predict, label radius ]
+            - scaler         : fitted StandardScaler object needed to normalize the evaluation dataset
+        """
         self.generator_model = generator_model
         self.latent_dim = latent_dim
         self.input_data = dataset[:,0:4]
@@ -103,8 +103,6 @@ class Evaluation:
         print("{:<20} {:<15.3f} {:<15.3f} {:<15.3f} {:<15.3f}".format('Skewness_fake', skew_fake[0], skew_fake[1],
                                                                       skew_fake[2], skew_fake[3], ))
         print(" " * 100)
-        #print("{:<20} {:<15.3f} {:<15.3f} {:<15.3f} {:<15.3f}".format('KS-test (p-value)', p_values[0], p_values[1],
-        #                                                              p_values[2], p_values[3]))
         print("." * 100)
         print("    Covariance matrices")
         print("." * 100)
