@@ -10,6 +10,10 @@ TRAINING_SAMPLES_PATH   = '/home/ruben/Documents/trainingSamples'
 EVALUATION_SAMPLES_PATH = '/home/ruben/Documents/evaluationSamples'
 
 MODEL_PATH = ABSPATH + '/Common/Models/v1/muon_propagation_WGAN_model.h5'
+MODEL_PATH_SIMPLE = ABSPATH + '/Common/Models/v1/LScGAN_dynamic_lr_generator.h5'
+
+LATENT_DIMS = {MODEL_PATH:        16,
+               MODEL_PATH_SIMPLE: 64}
 
 if __name__=='__main__':
     print('ABSPATH:  ', ABSPATH)
