@@ -21,6 +21,23 @@ In ```Paper/Common/Constants.py```it is necessary to specify the location of the
 Currently, this file has a size of 493 MB.
 
 ### Instructions to run
+
+#### Generated ROOT files and Point of Closest Approach (PoCA) maps:
+The generation of the PoCA maps for G4 samples and GAN samples is done via 3 steps:
+1. ```generateSamplestoROOT.py``` uses the GAN model to generate muon events and save them in a .root file.
+The info saved in the .root is:
+    - The thickness of the pipe corresponding to the event            (R)
+    - The first detector variables                                    (p*1)
+    - The second detector variables (G4)                              (p*2)
+    - The second detector variables generated with GAN model          (p*2_gan)
+
+3. ```runPoCAfromROOT_GANsamples.py```uses the output of previous step to run the PoCA algorithm and save the info to a .root file.
+4. ```plotPoCAmaps_GAN.py``` generates 2D hists os PoCA maps for G4 samples and GAN samples.
+
+I already prerun the 3 steps, so to test you can skip any of them. The generated root files are in https://cernbox.cern.ch/s/l8RVUAVHXACFtmU (rootFilesGen/).
+
+
+#### Old evaluation via Evaluatin.py
 The script ```plotEvaluation.py```contains code to:
 1. load the .h5 model placed in ```Paper/Common/Models/v1/muon_propagation_WGAN_model.h5```
 2. load the evaluation samples located in a .csv file.
