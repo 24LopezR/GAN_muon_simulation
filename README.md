@@ -9,13 +9,24 @@ Stuff related to the paper: code, datafiles and trained model.
 ### Requirements
 A list of the packages needed to run (with the version I use):
 - python (3.9.16) any python 3.X will work
-- tensorflow-gpu (2.4.1)
-- keras (2.4.3)
-- numpy (1.23.5)
-- scikit-learn (1.2.2)
-- pandas (1.5.3)
-- joblib (1.1.1)
-- matplotlib (3.7.1)
+- tensorflow (2.10.0)
+- keras (2.10.0)
+- numpy (1.26.4)
+- scikit-learn (1.4.0)
+- scipy (1.12.0)
+- pandas (2.2.0)
+- joblib (1.3.2)
+- matplotlib (3.8.2)
+
+#### How I setup my conda environment
+```bash
+conda create --name=tf-root python=3.9
+conda install -c conda-forge root
+conda install -c conda-forge cudatoolkit=11.2.2 cudnn=8.1.0
+python3 -m pip install tensorflow==2.10
+pip install pandas scikit-learn scipy matplotlib
+```
+
 #### Specify the location of evaluation samples
 In ```Paper/Common/Constants.py```it is necessary to specify the location of the .csv file with the samples used for evaluation.
 Currently, this file has a size of 493 MB.
