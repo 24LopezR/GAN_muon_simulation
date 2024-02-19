@@ -18,10 +18,16 @@ La información que se guarda en el .root es:
 '''
 
 ################################ CONSTANTS ####################################
-GENERATED_SAMPLES = 'gensamples2'
+GENERATED_SAMPLES = 'gensamples2plus12mm'
 OUTPUT_FILE = './rootFilesGen/PoCA_'+GENERATED_SAMPLES+'.root'
 GENSAMPLES_FILE = './rootFilesGen/'+GENERATED_SAMPLES+'.root'
 ###############################################################################
+## SELECTION
+DX_cut = 15
+DY_cut = 15
+DVX_cut = 0.25
+DVY_cut = 0.25
+
 
 ABSPATH = '/'.join(__file__.split('/')[:-2])
 print('Project absolute path: ', ABSPATH)
@@ -32,6 +38,7 @@ radius = {
     "18p2_20": 18,
     "18p4_20": 16,
     "18p6_20": 14,
+    "18p8_20": 12,
     "19p0_20": 10,
     "19p2_20": 8,
     "19p4_20": 6,
@@ -99,10 +106,16 @@ if __name__== "__main__":
         treename = f'f.tree_{radius[key]}mm'
         print(f'Processing tree {treename}...')
         for ev in tqdm(eval(treename), total=eval(treename).GetEntries()):
-            if abs(ev.px1) > 50 or abs(ev.py1) > 50 or abs(ev.pvx1) > 1.5 or abs(ev.pvy1) > 1.5:
-                continue
-            if abs(ev.px2) > 50 or abs(ev.py2) > 50 or abs(ev.pvx2) > 1.5 or abs(ev.pvy2) > 1.5:
-                continue
+            deltax = ev.px2 - ev.px1 + 39*2 * ev.pvx1
+            deltay = ev.py2 - ev.py1 + 39*2 * ev.pvy1
+            deltavx = ev.pvx2 - ev.pvx1
+            deltavy = ev.pvy2 - ev.pvy1
+            pass_selection = [abs(deltax) < DX_cut, abs(deltay) < DY_cut, abs(deltavx) < DVX_cut, abs(deltavy) < DVY_cut]
+            if not pass_selection: continue
+            #if abs(ev.px1) > 40 or abs(ev.py1) > 40 or abs(ev.pvx1) > 1.5 or abs(ev.pvy1) > 1.5:
+            #    continue
+            #if abs(ev.px2) > 40 or abs(ev.py2) > 40 or abs(ev.pvx2) > 1.5 or abs(ev.pvy2) > 1.5:
+            #    continue
             R[0] = ev.R
             poca, th = computePoCA(ev, GAN=False)
             X_PoCA_G4[0] = poca[0]

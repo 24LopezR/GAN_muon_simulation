@@ -38,27 +38,38 @@ SCALER = WEIGHTED_SCALER
 EVAL_DATA_FILE = EVALUATION_SAMPLES_PATH + "/evaluationSamples_Oct16.csv"
 MODEL_FILE = MODEL_PATH
 LATENT_DIM = 16
-RADIUS = [4,6,8,10,14,16,18,20]
+RADIUS = [4,6,8,10,12,14,16,18,20]
 
-OUTPUT_FILE = '.rootFilesGen/gensamples2.root'
+OUTPUT_FILE = './rootFilesGen/gensamples2plus12mm.root'
 ############################################################################
 
 """
 Loads the evaluation samples into a numpy array
 """
 def load(inputfile):
-    data = pd.read_csv(inputfile).to_numpy()
-    mask = [i in [4, 6, 8, 10, 14, 16, 18, 20] for i in data[:, 8]]
-    data = data[mask]
+    data_all = pd.read_csv(inputfile).to_numpy()
+    mask = [i in [4, 6, 8, 10, 14, 16, 18, 20] for i in data_all[:, 8]]
+    data = data_all[mask]
     variables = data[:, :8]
     labels = data[:, 8]
     print(f'Scaler transform: {np.shape(variables)}')
     variables = SCALER.transform(variables)
 
-    encoder = OneHotEncoder(sparse=False)
+    encoder = OneHotEncoder(sparse_output=False)
     encoder.fit(labels.reshape((-1, 1)))
     labels = encoder.transform(labels.reshape((-1, 1)))
-    return np.concatenate([variables, labels], axis=1)
+    data_out = np.hstack([variables, labels])
+    print(data_out.shape)
+
+    mask_eval = [i == 12 for i in data_all[:, 8]]
+    data_eval = data_all[mask_eval]
+    variables_eval = SCALER.transform(data_eval[:, :8])
+    labels_eval = np.zeros((data_eval.shape[0], 8))
+    labels_eval[:,3:5] = 0.5
+    data_eval = np.hstack([variables_eval, labels_eval])
+    print(data_eval.shape)
+    print(data_eval[0])
+    return np.vstack([data_out, data_eval])
 
 if __name__ == "__main__":
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -139,7 +150,7 @@ if __name__ == "__main__":
         trees[radius].Branch('pvy2_gan', pvy2_gan, 'pvy2_gan/F')
         trees[radius].Branch('pvz2_gan', pvz2_gan, 'pvz2_gan/F')
     for N in tqdm(range(g4_dataset.shape[0])):
-        R[0] = int(np.dot(dataset[N,8:],RADIUS))
+        R[0] = int(np.dot(dataset[N,8:],[4,6,8,10,14,16,18,20]))
         px1[0] = g4_dataset[N,0]
         py1[0] = g4_dataset[N,1]
         pz1[0] = 39.
