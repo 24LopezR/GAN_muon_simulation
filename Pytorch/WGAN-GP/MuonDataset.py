@@ -2,14 +2,19 @@ import os
 import numpy as np
 import torch
 from torch.utils.data import Dataset
-import ROOT as r
+import torch.nn.functional as F
+#import ROOT as r
 from tqdm import tqdm
 import csv
+import pandas as pd
+import linecache
 
 ################### CONSTANTS #########################
-DATAFILESPATH = '/home/ruben/Samples/training/csv/'
+DATAFILESPATH = '/home/ruben/Documents/Samples_csv/'
 ''' datafiles name: PipeTest_19p8_20_fullformat_19p8_20_seed20.root '''
-
+VARIABLES = ['x1', 'y1', 'vx1', 'vy1', 'Dx*', 'Dy*', 'Dvx', 'Dvy']
+DATASET_MEANS = [-3.35106871e-03, 8.09916705e-04, -5.06725966e-05, -2.52541321e-05, 1.50628691e-03, -3.78948043e-04, -2.91726292e-05, 6.84416923e-06, 0.]
+DATASET_STDS = [21.68090625, 21.68617845, 0.23085455, 0.23050012, 1.16791604, 1.17080322, 0.02676904, 0.0266398, 1.]
 #######################################################
 
 
@@ -32,6 +37,7 @@ class MuonDataset(Dataset):
             "19p6_20": 4,
             "19p8_20": 2
         }
+        self.radius_v = np.array([2., 4., 6., 8., 10., 12., 14., 16., 18., 20.])
 
         # we need to order the csv files that form the dataset somehow (alphabetic order)
         self.list_of_files = sorted([self.datafiles_path+_file for _file in os.listdir(self.datafiles_path)])
@@ -41,18 +47,34 @@ class MuonDataset(Dataset):
                 num_samples.append(sum(1 for line in f))
         self.num_samples = np.asarray(num_samples, dtype=int)
         self.cumulative_samples = np.cumsum(self.num_samples, dtype=int)
+        #### Scaling constants
+        self.means = torch.tensor(DATASET_MEANS)
+        self.stds  = torch.tensor(DATASET_STDS)
+        self.epsilon = 1e-07
 
     def __len__(self):
         length = 0
-        for _file in os.listdir(self.datafiles_path):
-            if '.csv' not in _file: continue
-            with open(self.datafiles_path+_file) as f:
+        for _file in self.list_of_files:
+            with open(_file) as f:
                 l_temp = sum(1 for line in f)
             length += l_temp
         return length
 
     def __getitem__(self, idx):
-        return 0
+        _file_idx, _sample_idx = self.getFileIndexFromIdx(idx)
+        _line = linecache.getline(self.list_of_files[_file_idx], _sample_idx+1)
+        _sample = torch.tensor(np.fromstring(_line, sep=','), dtype=torch.float)
+        if _sample.shape != torch.Size([9]):
+            print(_sample.shape)
+            print(_line)
+            print(_file_idx, _sample_idx)
+            print(_sample)
+        _scaled_sample = (_sample - self.means) / (self.stds + self.epsilon)
+        return _scaled_sample[0:4], _scaled_sample[4:8], self.oneHotEncode(_scaled_sample[8])
+
+    def oneHotEncode(self, radius):
+        return F.one_hot(torch.tensor(np.where(np.isclose(radius, self.radius_v))[0]), num_classes = self.radius_v.size).view(self.radius_v.size).type(dtype=torch.float)
+
 
     def writeCSVfiles(self, datafiles_path):
         """
@@ -92,16 +114,40 @@ class MuonDataset(Dataset):
         print('Data successfully loaded')
 
     def getFileIndexFromIdx(self, idx):
-        _file_idx = np.searchsorted(self.cumulative_samples, idx)-1
-        _sample_idx = np.mod(idx, self.cumulative_samples[_file_idx])
-        print('>> File index:   {0}'.format(_file_idx))
-        print('>> Sample index: {0}'.format(_sample_idx))
+        _file_idx = np.searchsorted(self.cumulative_samples, idx)
+        #print('>> idx = {0}, cum_samples = {1}'.format(idx, self.cumulative_samples[_file_idx-1]))
+        # Compute the sample id number
+        if _file_idx == 0: _sample_idx = idx
+        else: _sample_idx = np.mod(idx, self.cumulative_samples[_file_idx-1])
+        # If last sample in file, jump to next file
+        if _sample_idx == self.num_samples[_file_idx]:
+            _file_idx += 1
+            _sample_idx = 0
+        #print('>> File index:   {0}'.format(_file_idx))
+        #print('>> Sample index: {0}'.format(_sample_idx))
         return _file_idx, _sample_idx
+
+    def fitScaler(self):
+        _data = None
+        for _f in self.list_of_files:
+            _d = np.loadtxt(_f, delimiter=',')
+            if _data is not None: _data = np.concatenate((_data, _d), axis=0)
+            else: _data = _d
+        means = _data.mean(axis=0)
+        stds = _data.std(axis=0)
+        print(means[0:7])
+        print(stds[0:7])
+        return means[0:7], stds[0:7]
+
 
 if __name__ == '__main__':
     data = MuonDataset(DATAFILESPATH)
     print(data.__len__())
-    #print(data.list_of_files)
     print(data.num_samples)
     print(data.cumulative_samples)
-    data.getFileIndexFromIdx(1000000)
+    #for i in np.random.randint(low=0, high=data.__len__(), size=2):
+    #    print(i)
+    #    print(data.__getitem__(i))
+    print(data.__getitem__(0))
+    print(data.__getitem__(1842678))
+    print(data.__getitem__(data.__len__()-1))

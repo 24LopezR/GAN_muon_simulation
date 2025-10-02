@@ -36,6 +36,7 @@ def load(in_dir):
 	"""
     thedata = []
     for name in listdir(in_dir):
+        if 'seed20' not in name: continue
         for key in radius:
             if key in name:
                 r_pipe = radius[key]
@@ -55,6 +56,6 @@ def load(in_dir):
     return data
 
 if __name__== "__main__":
-    OUTPUT_FILE = EVALUATION_SAMPLES_PATH + '/evaluationSamples_Oct16.csv'
+    OUTPUT_FILE = EVALUATION_SAMPLES_PATH + '/evaluationSamples_seed20.csv'
     data = load(EVALUATION_SAMPLES_PATH)
     pd.DataFrame(data).to_csv(OUTPUT_FILE, header=False, index=False)

@@ -35,12 +35,13 @@ Las variables son transformadas de vuelta a las originales simuladas con G4.
 ############################################################################
 ### Constants
 SCALER = WEIGHTED_SCALER
-EVAL_DATA_FILE = EVALUATION_SAMPLES_PATH + "/evaluationSamples_Oct16.csv"
+EVAL_DATA_FILE = EVALUATION_SAMPLES_PATH + "/evaluationSamples_seed20.csv"
 MODEL_FILE = MODEL_PATH
 LATENT_DIM = 16
 RADIUS = [4,6,8,10,12,14,16,18,20]
 
-OUTPUT_FILE = './rootFilesGen/gensamples2plus12mm.root'
+
+OUTPUT_FILE = './rootFilesGen/gensamples2plus12mm_seed20.root'
 ############################################################################
 
 """

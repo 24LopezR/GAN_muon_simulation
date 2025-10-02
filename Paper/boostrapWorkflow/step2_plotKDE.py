@@ -19,12 +19,14 @@ Toma como input el archivo .root creado con step1_runPoCAonG4.py.
 '''
 
 ################################ CONSTANTS ####################################
-POCA_FILE_PATH = '/home/ruben/Documents/PoCA_G4/'
-OUTPUT_FILE_PATH = "/home/ruben/Documents/PoCAmaps_50bins_KDE/"
-MAX_HIST = 1.
-MIN_HIST = 1e-4
+POCA_FILE_PATH = '/home/ruben/Documents/GAN_muon_simulation/Paper/boostrapWorkflow/DatosBootstrapPoCA/'
+OUTPUT_FILE_PATH = "/home/ruben/Documents/GAN_muon_simulation/Paper/boostrapWorkflow/2Dmaps_KDE/"
+MAX_HIST = 0.
+MIN_HIST = 1.
 NBINSX = 50
 NBINSY = 50
+XLIM = 35
+YLIM = 35
 ###############################################################################
 
 ABSPATH = '/'.join(__file__.split('/')[:-2])
@@ -49,9 +51,9 @@ def saveSingleHist(infilename):
     #r.gStyle.SetPalette(r.kTemperatureMap)
     #print('Number of colors is', numberOfColors)
     # Create hists
-    hists = [r.TH2F(f"h2_N",      f"Number of points YZ; Y; Z", NBINSX, -50, 50, NBINSY, -50, 50),
-             r.TH2F(f"h2_theta",  f"Scattering angle YZ; Y; Z", NBINSX, -50, 50, NBINSY, -50, 50),
-             r.TH2F(f"h2_theta2", f"Scattering angle squared YZ; Y; Z", NBINSX, -50, 50, NBINSY, -50, 50)]
+    hists = [r.TH2F(f"h2_N",      f"Number of points YZ; Y; Z", NBINSX, -XLIM, XLIM, NBINSY, -YLIM, YLIM),
+             r.TH2F(f"h2_theta",  f"Scattering angle YZ; Y; Z", NBINSX, -XLIM, XLIM, NBINSY, -YLIM, YLIM),
+             r.TH2F(f"h2_theta2", f"Scattering angle squared YZ; Y; Z", NBINSX, -XLIM, XLIM, NBINSY, -YLIM, YLIM)]
 
 
     f = r.TFile.Open(f'{POCA_FILE_PATH}/{infilename}', "READ")
@@ -59,12 +61,12 @@ def saveSingleHist(infilename):
     yc = array('d')
     zc = array('d')
     theta = array('d')
-    zvar = r.RooRealVar("Z","Z (cm)", -50.0, 50.0)
-    yvar = r.RooRealVar("Y","Y (cm)", -50.0, 50.0);
+    zvar = r.RooRealVar("Z","Z (cm)", -YLIM, YLIM)
+    yvar = r.RooRealVar("Y","Y (cm)", -XLIM, XLIM);
     d = r.RooDataSet("d","d", r.RooArgSet(zvar,yvar))
     le = [] # list of ellipses
     for ev in tree:
-        if abs(ev.Y_PoCA) > 50 or abs(ev.Z_PoCA) > 50 or ev.theta < 0.1 or ev.theta > 0.3: continue
+        if abs(ev.Y_PoCA) > XLIM or abs(ev.Z_PoCA) > YLIM or ev.theta < 0.1 or ev.theta > 0.3: continue
         yc.append(ev.Y_PoCA)
         zc.append(ev.Z_PoCA)
         theta.append(ev.theta)
@@ -99,10 +101,10 @@ def saveSingleHist(infilename):
 
     kest4 = r.RooNDKeysPdf("kest4","kest4", r.RooArgSet(yvar,zvar), d)
     
-    hh_data = d.createHistogram("hh_data", yvar, r.RooFit.Binning(NBINSX, -50.0, 50.0), r.RooFit.YVar(zvar, r.RooFit.Binning(NBINSY, -50.0, 50.0)))
-    hh_pdf = kest4.createHistogram("hh_pdf", yvar, r.RooFit.Binning(NBINSX, -50.0, 50.0), r.RooFit.YVar(zvar, r.RooFit.Binning(NBINSY, -50.0, 50.0))) 
+    hh_data = d.createHistogram("hh_data", yvar, r.RooFit.Binning(NBINSX, -XLIM, XLIM), r.RooFit.YVar(zvar, r.RooFit.Binning(NBINSY, -YLIM, YLIM)))
+    hh_pdf = kest4.createHistogram("hh_pdf", yvar, r.RooFit.Binning(NBINSX, -XLIM, XLIM), r.RooFit.YVar(zvar, r.RooFit.Binning(NBINSY, -YLIM, YLIM))) 
     
-    c = r.TCanvas("rf707_kernelestimation", "rf707_kernelestimation", 1800, 800)
+    '''c = r.TCanvas("rf707_kernelestimation", "rf707_kernelestimation", 1800, 800)
     c.Divide(2,1) 
     c.cd(1) 
     r.gPad.SetLeftMargin(0.15)
@@ -118,8 +120,9 @@ def saveSingleHist(infilename):
     hh_pdf.GetZaxis().SetTitleOffset(2.4) 
     hh_pdf.SetTitle("Smoothen measurement")
     hh_pdf.Draw("COLZ")
-    c.SaveAs(f"plot_kernel_{infilename.split('.')[0]}.png")
+    c.SaveAs(f"plot_kernel_{infilename.split('.')[0]}.png")'''
 
+    global MAX_HIST, MIN_HIST
     outputfilename = f'{OUTPUT_FILE_PATH}/map_{infilename}'
     fileout = r.TFile.Open(outputfilename, "RECREATE")
     hists_RMS = {}
@@ -132,19 +135,24 @@ def saveSingleHist(infilename):
     h_thetameansq.Divide(hists[0])
     h_thetameansq.Multiply(h_thetameansq)
     h_thetameansq.Scale(-1)
-    h_RMS = r.TH2F(f"h2_RMS", f"Scattering angle RMS YZ; Y; Z", NBINSX, -50, 50, NBINSY, -50, 50)
+    h_RMS = r.TH2F(f"h2_RMS", f"Scattering angle RMS YZ; Y; Z", NBINSX, -XLIM, XLIM, NBINSY, -YLIM, YLIM)
     h_RMS.Add(h_thetasqmean)
     h_RMS.Add(h_thetameansq)
-    h_RMS.SetMaximum(MAX_HIST)
-    h_RMS.SetMinimum(MIN_HIST)
+    #h_RMS.SetMaximum(MAX_HIST)
+    #h_RMS.SetMinimum(MIN_HIST)
     h_RMS.Write()
-    h_RMS_a = r.TH2F(f"h2_RMS_a", f"Scattering angle RMS (approx) YZ; Y; Z", NBINSX, -50, 50, NBINSY, -50, 50)
+    h_RMS_a = r.TH2F(f"h2_RMS_a", f"Scattering angle RMS (approx) YZ; Y; Z", NBINSX, -XLIM, XLIM, NBINSY, -YLIM, YLIM)
     h_RMS_a = h_thetasqmean
     h_RMS_a.Write()
     hh_data.Write()
     hh_pdf.Write()
+    if hh_pdf.GetMaximum() > MAX_HIST: 
+        MAX_HIST = hh_pdf.GetMaximum()
+    if hh_pdf.GetMinimum() < MIN_HIST: 
+        MIN_HIST = hh_pdf.GetMinimum()
     fileout.Write()
     fileout.Close()
+    del hh_data, hh_pdf
 
 if __name__== "__main__":
     r.gROOT.ProcessLine('.L ./tdrstyle.C')
@@ -155,4 +163,5 @@ if __name__== "__main__":
         #print(f"{POCA_FILE_PATH}/{infilename}")
         if not '.root' in infilename: continue
         saveSingleHist(infilename)
-        break
+        #break
+    print(MAX_HIST, MIN_HIST)

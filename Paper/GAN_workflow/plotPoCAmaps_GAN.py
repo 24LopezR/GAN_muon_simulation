@@ -12,8 +12,8 @@ Toma como input el archivo .root creado con runPoCAfromROOT_GANsamples.py.
 '''
 
 ################################ CONSTANTS ####################################
-POCA_FILE = './rootFilesGen/PoCA_gensamples2plus12mm.root'
-OUTPUT_FILE = "./rootFilesGen/PoCAmaps_gensamples2plus12mm.root"
+POCA_FILE = './rootFilesGen/PoCA_gensamples2plus12mm_seed20.root'
+OUTPUT_FILE = "./rootFilesGen/PoCAmaps_gensamples2plus12mm_seed20.root"
 NBINS = 50
 ###############################################################################
 

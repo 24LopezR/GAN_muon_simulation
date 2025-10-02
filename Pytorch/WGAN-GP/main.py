@@ -1,31 +1,52 @@
 import torch
 import torch.optim as optim
-from dataloaders import get_mnist_dataloaders, get_lsun_dataloader
-from models import Generator, Discriminator
+from torch.utils.data import DataLoader
+from models_fastsim import Generator, Discriminator
 from training import Trainer
+from MuonDataset import MuonDataset
 
-data_loader, _ = get_mnist_dataloaders(batch_size=64)
-img_size = (32, 32, 1)
+DATAFILESPATH = '/home/ruben/Documents/Samples_csv/'
+BATCH_SIZE    = 4096
+N_IN_VARS     = 4
+N_OUT_VARS    = 4
+N_RADIUS      = 10
+LATENT_DIM    = 16
 
-generator = Generator(img_size=img_size, latent_dim=100, dim=16)
-discriminator = Discriminator(img_size=img_size, dim=16)
+dataset = MuonDataset(DATAFILESPATH)
+dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
+
+## Data loading test...
+in_vars, out_vars, radius = next(iter(dataloader))
+print(f"In batch shape:  {in_vars.size()}")
+print(f"Out batch shape: {out_vars.size()}")
+print(f"Radius shape:    {radius.size()}")
+
+## Define the models
+generator     = Generator(n_output_variables=N_OUT_VARS,
+                          n_input_variables=N_IN_VARS,
+                          n_radius=N_RADIUS,
+                          latent_dim=LATENT_DIM)
+critic        = Discriminator(n_output_variables=N_OUT_VARS,
+                              n_input_variables=N_IN_VARS, 
+                              n_radius=N_RADIUS)
 
 print(generator)
-print(discriminator)
+print(critic)
 
 # Initialize optimizers
 lr = 1e-4
 betas = (.9, .99)
 G_optimizer = optim.Adam(generator.parameters(), lr=lr, betas=betas)
-D_optimizer = optim.Adam(discriminator.parameters(), lr=lr, betas=betas)
+D_optimizer = optim.Adam(critic.parameters(),    lr=lr, betas=betas)
 
 # Train model
 epochs = 50
-trainer = Trainer(generator, discriminator, G_optimizer, D_optimizer,
+print('>> CUDA: {0}'.format(torch.cuda.is_available()))
+trainer = Trainer(generator, critic, G_optimizer, D_optimizer,
                   use_cuda=torch.cuda.is_available())
-trainer.train(data_loader, epochs, save_training_gif=True)
+trainer.train(dataloader, epochs)
 
 # Save models
-name = 'mnist_model'
+name = ''
 torch.save(trainer.G.state_dict(), './gen_' + name + '.pt')
 torch.save(trainer.D.state_dict(), './dis_' + name + '.pt')

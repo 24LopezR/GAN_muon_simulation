@@ -2,7 +2,7 @@ import ROOT as r
 import numpy as np
 import time
 
-HIST_FILE = './rootFilesGen/PoCAmaps_gensamples2plus12mm.root'
+HIST_FILE = './rootFilesGen/PoCAmaps_gensamples2plus12mm_seed20.root'
 
 if __name__=='__main__':
     #r.gROOT.ProcessLine('.L ./tdrstyle.C')
@@ -36,7 +36,7 @@ if __name__=='__main__':
         h.SetMinimum(1e-4)
         h.Draw('COL AH');
         time.sleep(2)
-        c.GetPad(0).SaveAs(f"PoCAmaps/gan_{R[rad]}_RMS.png")
+        c.GetPad(0).SaveAs(f"PoCAmaps/gan_{R[rad]}_RMS_seed20.png")
         del h 
 
 

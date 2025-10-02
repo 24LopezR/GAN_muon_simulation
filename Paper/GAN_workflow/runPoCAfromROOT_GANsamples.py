@@ -18,7 +18,7 @@ La información que se guarda en el .root es:
 '''
 
 ################################ CONSTANTS ####################################
-GENERATED_SAMPLES = 'gensamples2plus12mm'
+GENERATED_SAMPLES = 'gensamples2plus12mm_seed20'
 OUTPUT_FILE = './rootFilesGen/PoCA_'+GENERATED_SAMPLES+'.root'
 GENSAMPLES_FILE = './rootFilesGen/'+GENERATED_SAMPLES+'.root'
 ###############################################################################
